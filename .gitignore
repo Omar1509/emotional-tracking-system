@@ -1,0 +1,42 @@
+rasa_chatbot/rasa_env/
+venv/
+env/
+ENV/
+*.venv
+
+# Node modules
+node_modules/
+*/node_modules/
+
+# Variables de entorno
+.env
+*.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Modelos entrenados de Rasa
+models/
+*.tar.gz
+
+# Logs
+*.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Dependencias que se pueden reinstalar
+package-lock.json
+yarn.lock
