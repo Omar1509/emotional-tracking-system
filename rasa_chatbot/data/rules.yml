@@ -1,0 +1,22 @@
+version: "3.1"
+
+rules:
+  - rule: Saludar
+    steps:
+      - intent: saludar
+      - action: utter_saludar
+
+  - rule: Despedirse
+    steps:
+      - intent: despedirse
+      - action: utter_despedirse
+
+  - rule: Agradecer
+    steps:
+      - intent: agradecimiento
+      - action: utter_agradecimiento
+
+  - rule: Respuesta por defecto cuando no entiende
+    steps:
+      - intent: nlu_fallback
+      - action: utter_default

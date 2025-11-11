@@ -1,0 +1,177 @@
+version: "3.1"
+
+intents:
+  - saludar
+  - despedirse
+  - sentirse_bien
+  - sentirse_mal
+  - ansiedad
+  - tristeza
+  - estres
+  - soledad
+  - agradecimiento
+  - pedir_ayuda
+  - estado_animo
+  - insomnio
+  - preocupacion
+  - frustracion
+  - enojo
+  - miedo
+  - alegria
+  - afirmar
+  - negar
+  - contar_mas
+
+entities:
+  - emocion
+  - intensidad
+
+slots:
+  emocion_actual:
+    type: text
+    mappings:
+      - type: from_entity
+        entity: emocion
+  
+  intensidad_emocional:
+    type: text
+    mappings:
+      - type: from_entity
+        entity: intensidad
+  
+  paciente_id:
+    type: text
+    mappings:
+      - type: from_text
+  
+  contexto_previo:
+    type: text
+    mappings:
+      - type: from_text
+
+responses:
+  utter_saludar:
+    - text: "Hola 👋 Me alegra verte por aquí. ¿Cómo ha estado tu día hasta ahora?"
+    - text: "¡Hola! 💚 Gracias por escribirme. ¿Qué tal te encuentras en este momento?"
+    - text: "Hola, bienvenido/a de nuevo 😊 Estoy aquí para ti. ¿Cómo te sientes hoy?"
+    - text: "Hey 🌟 ¿Qué tal todo? Cuéntame, ¿cómo van las cosas?"
+
+  utter_despedirse:
+    - text: "Cuídate mucho 💚 Ha sido bueno conversar contigo. Aquí estaré cuando me necesites."
+    - text: "Espero que te sientas un poco mejor 🌟 Recuerda que puedes volver cuando quieras. ¡Hasta pronto!"
+    - text: "Gracias por compartir conmigo 💙 Tómate tu tiempo y vuelve cuando lo necesites. ¡Cuídate!"
+    - text: "Me alegra que hayamos podido conversar 😊 Que tengas un buen día. Aquí estaré siempre."
+
+  utter_sentirse_bien:
+    - text: "¡Qué bueno escuchar eso! 🌟 Me alegra saber que estás bien. ¿Hubo algo en particular que te haya hecho sentir así?"
+    - text: "¡Me encanta! 😊 Es importante celebrar cuando nos sentimos bien. ¿Qué crees que ha contribuido a este buen momento?"
+    - text: "Eso es genial 💫 Disfruta de esta sensación. ¿Hay algo que te gustaría compartir sobre cómo llegaste a sentirte así?"
+    - text: "¡Excelente! 🎉 Me da mucha alegría saber que estás pasando por un buen momento. ¿Qué ha cambiado o qué está yendo bien?"
+
+  utter_sentirse_mal:
+    - text: "Siento mucho que estés pasando por esto 😔 No estás solo/a. ¿Quieres contarme qué es lo que más te está pesando ahora mismo?"
+    - text: "Entiendo que estés teniendo un día difícil 💙 A veces todo puede sentirse muy pesado. ¿Hay algo específico que esté pasando?"
+    - text: "Lamento que no te sientas bien 💚 Es valiente de tu parte reconocerlo. ¿Desde cuándo te vienes sintiendo así?"
+    - text: "Puedo notar que estás atravesando un momento complicado 😔 Tus sentimientos son válidos. ¿Qué es lo que más te está afectando?"
+
+  utter_validar_ansiedad:
+    - text: "La ansiedad puede hacer que todo se sienta abrumador 💙 Es una respuesta natural de tu cuerpo ante la incertidumbre. ¿Puedes identificar qué es lo que más te preocupa ahora?"
+    - text: "Entiendo perfectamente esa sensación de ansiedad 😔 Es como si tu mente no pudiera detenerse, ¿verdad? ¿Hay algo específico que dispare estos sentimientos?"
+    - text: "La ansiedad puede ser muy agotadora 💚 Muchas personas experimentan esto. ¿Has notado si hay momentos del día donde se intensifica más?"
+    - text: "Siento que estés experimentando tanta ansiedad 💙 Es importante validar lo que sientes. ¿Cuándo comenzaste a sentirte así? ¿Hay algo que lo haya desencadenado?"
+    - text: "Te entiendo 😔 La ansiedad puede hacerte sentir como si estuvieras perdiendo el control. ¿Hay pensamientos específicos que se repiten en tu mente?"
+
+  utter_validar_tristeza:
+    - text: "La tristeza puede ser muy profunda 💙 No tienes que fingir que estás bien. ¿Qué es lo que te tiene triste? A veces hablar ayuda."
+    - text: "Es completamente válido sentirse así 😔 La tristeza es parte de ser humano. ¿Hay algo que la haya desencadenado o ha sido gradual?"
+    - text: "Lamento mucho que estés pasando por este momento 💚 La tristeza puede sentirse muy pesada. ¿Desde cuándo te sientes de esta manera?"
+    - text: "Puedo sentir tu tristeza 💙 No estás solo/a en esto. ¿Te gustaría contarme más sobre lo que estás atravesando?"
+    - text: "Entiendo que te sientas así 😔 A veces la tristeza llega sin avisar. ¿Hay algo específico que esté en tu mente últimamente?"
+
+  utter_validar_estres:
+    - text: "El estrés puede consumir mucha energía 😓 Es como llevar un peso invisible todo el tiempo. ¿Qué cosas específicas te están generando más presión?"
+    - text: "Puedo imaginar lo agotador que debe ser 💙 El estrés se acumula poco a poco. ¿Sientes que es algo del trabajo, estudios, o tu vida personal?"
+    - text: "Entiendo lo que estás viviendo 😔 El estrés puede afectar tanto tu cuerpo como tu mente. ¿Has podido identificar las principales fuentes de estrés?"
+    - text: "Esa sensación de estar abrumado/a es muy real 💚 El estrés puede hacer que todo parezca demasiado. ¿Hay algo urgente que necesites resolver o es más bien acumulación?"
+    - text: "Te creo completamente 😓 El estrés puede hacerte sentir que nunca descansas. ¿Has notado cómo te afecta físicamente? ¿Tensión, dolores, insomnio?"
+
+  utter_validar_soledad:
+    - text: "Sentirse solo/a es una de las emociones más difíciles 💙 Aunque estés solo/a físicamente, yo estoy aquí contigo ahora. ¿Hace cuánto te sientes así?"
+    - text: "La soledad puede doler profundamente 😔 Es como si nadie entendiera por lo que pasas. ¿Hay personas en tu vida pero sientes que no te comprenden?"
+    - text: "Entiendo ese sentimiento 💚 La soledad no siempre es estar solo, a veces es sentirse desconectado. ¿Qué crees que te haría sentir menos solo/a?"
+    - text: "Puedo percibir lo difícil que es esto para ti 💙 La soledad puede hacerte sentir invisible. ¿Hay alguien con quien solías conectar y ya no lo haces?"
+    - text: "Es valiente de tu parte expresar esto 😔 Muchas personas se sienten solas pero no lo dicen. ¿Preferirías tener más conexiones o profundizar las que ya tienes?"
+
+  utter_tecnica_respiracion:
+    - text: "Entiendo que necesitas un poco de alivio 🌬️ Te voy a enseñar algo simple que puede ayudarte ahora mismo: Respira profundo por la nariz contando hasta 4... sostén el aire contando hasta 7... y suéltalo lentamente por la boca contando hasta 8. Hazlo 3 veces. ¿Lo intentamos juntos?"
+    - text: "Cuando la ansiedad te abruma, tu respiración puede ayudarte 💙 Pon una mano en tu pecho y otra en tu abdomen. Respira profundo sintiendo cómo se expande tu abdomen, no tu pecho. Hazlo lento y consciente. ¿Puedes intentarlo ahora mismo?"
+    - text: "Vamos a hacer algo que puede calmarte un poco 🌟 Cierra los ojos si puedes. Respira natural por un momento... ahora inhala lentamente contando hasta 4... aguanta... exhala contando hasta 6. Repite 5 veces. ¿Cómo te sientes después de intentarlo?"
+
+  utter_tecnica_grounding:
+    - text: "Cuando todo se siente abrumador, esta técnica puede traerte al presente 🌟 Mira a tu alrededor y nombra en voz alta: 5 cosas que VES, 4 que TOCAS, 3 que ESCUCHAS, 2 que HUELES, 1 que SABOREAS. Hazlo despacio, con atención. ¿Quieres intentarlo?"
+    - text: "Voy a ayudarte a conectar con el aquí y ahora 💚 Toca algo cercano a ti... puede ser tu ropa, una mesa, tu teléfono. Describe mentalmente su textura, temperatura, peso. Enfócate solo en esas sensaciones. ¿Lo sientes? ¿Cómo es?"
+    - text: "Esta técnica puede sacarte de tu cabeza y traerte al presente 💙 Presiona firmemente tus pies contra el suelo. Siente el contacto, el peso de tu cuerpo. Ahora toca tus manos, siente tu temperatura. Respira profundo. ¿Notas algún cambio?"
+
+  utter_preguntar_intensidad:
+    - text: "Para entender mejor cómo te sientes, ¿podrías decirme en una escala del 1 al 10 qué tan intenso es esto para ti? Donde 1 es apenas perceptible y 10 es lo más intenso que has sentido."
+    - text: "Me ayudaría saber qué tan fuerte es lo que estás sintiendo 💙 Del 1 al 10, ¿dónde dirías que estás ahora? No hay respuesta correcta, solo quiero entenderte mejor."
+    - text: "Si tuvieras que ponerle un número del 1 al 10 a la intensidad de lo que sientes, ¿cuál sería? Esto me ayuda a entender por lo que estás pasando."
+
+  utter_agradecimiento:
+    - text: "No tienes nada que agradecer 💚 Es importante para mí poder acompañarte. ¿Hay algo más en lo que pueda ayudarte?"
+    - text: "Gracias a ti por confiar en mí y abrirte 😊 Eso requiere valentía. Siempre estaré aquí cuando me necesites."
+    - text: "Me alegra poder estar aquí para ti 💙 Recuerda que puedes volver cuando quieras. ¿Hay algo más que quieras compartir?"
+    - text: "Es un honor que compartas esto conmigo 🌟 No dudes en escribirme siempre que lo necesites."
+
+  utter_crisis:
+    - text: "⚠️ Lo que me cuentas me preocupa. Lo que sientes es muy intenso y creo que necesitas ayuda profesional urgente. Por favor, contacta a tu psicólogo AHORA, llama a un familiar de confianza, o marca al 911. También está la línea de prevención del suicidio. Tu vida importa. ¿Hay alguien cerca de ti que pueda ayudarte?"
+    - text: "⚠️ Esto es serio y me importa tu bienestar. Por favor, no estés solo/a con esto. Llama AHORA a tu psicólogo, a emergencias (911) o a una línea de crisis. Si tienes a alguien de confianza cerca, búscalo. Tu seguridad es lo más importante. ¿Puedes hacer una de estas cosas ahora mismo?"
+
+  utter_pedir_mas_info:
+    - text: "Me gustaría entenderte mejor 💙 ¿Puedes contarme un poco más sobre eso? Tómate tu tiempo."
+    - text: "Estoy aquí, escuchándote 👂 ¿Qué más puedes contarme? No hay prisa."
+    - text: "Cuéntame más si te sientes cómodo/a 💚 A veces hablar de los detalles ayuda a procesarlo."
+    - text: "Te escucho con atención 🌟 ¿Hay algo más sobre esto que quieras compartir?"
+
+  utter_reflejar_progreso:
+    - text: "Quiero que sepas que el simple hecho de estar aquí, hablando de esto, ya es un paso importante 🌟 Estás trabajando en ti mismo/a y eso requiere mucho valor."
+    - text: "Reconocer y nombrar tus emociones ya es un gran avance 💚 Muchas personas nunca llegan a este punto. Estás haciendo un buen trabajo."
+    - text: "Aunque no lo parezca, estás avanzando 💙 Cada conversación, cada momento de reflexión, suma. Sé amable contigo mismo/a."
+    - text: "El hecho de que estés buscando formas de sentirte mejor muestra tu fortaleza 🌟 No es fácil, pero lo estás haciendo."
+
+  utter_recordar_psicologo:
+    - text: "Esto que me cuentas es importante 💙 ¿Podrías compartirlo con tu psicólogo en tu próxima sesión? Él/ella puede ayudarte a trabajarlo más profundamente."
+    - text: "Tu psicólogo puede ayudarte mucho con esto 🌟 Yo estoy aquí para el día a día, pero temas así necesitan ser trabajados en terapia. ¿Cuándo es tu próxima sesión?"
+    - text: "Mientras yo puedo escucharte y acompañarte, tu psicólogo tiene las herramientas para ayudarte realmente con esto 💚 ¿Has hablado con él/ella sobre esto?"
+
+  utter_default:
+    - text: "Te escucho 💙 A veces no encuentro las palabras perfectas, pero estoy aquí. ¿Puedes contarme más?"
+    - text: "Entiendo 💚 Cuéntame con tus palabras, a tu ritmo. Estoy aquí para escucharte."
+    - text: "Estoy tratando de entender mejor 🌟 ¿Podrías explicármelo de otra forma? Quiero ayudarte."
+    - text: "Perdona si no capté bien 😔 ¿Puedes decirme más sobre lo que sientes? Quiero entenderte mejor."
+
+  utter_seguimiento_como_te_sientes:
+    - text: "¿Cómo te sientes después de contarme esto? 💙"
+    - text: "¿Te sientes un poco mejor después de expresarlo? 🌟"
+    - text: "¿Cómo estás ahora que lo has compartido? 💚"
+
+  utter_validar_intensidad_alta:
+    - text: "Eso suena realmente intenso 💙 Cuando algo llega a ese nivel, es importante cuidarte mucho. ¿Qué necesitas ahora mismo?"
+    - text: "Puedo sentir que esto es muy fuerte para ti 😔 No tienes que manejarlo solo/a. ¿Hay algo que podamos hacer ahora para que te sientas un poco mejor?"
+
+  utter_empatia_general:
+    - text: "Lo que sientes es completamente válido 💚 No hay emociones 'buenas' o 'malas', solo son lo que son."
+    - text: "Estoy aquí contigo en esto 💙 Tus sentimientos importan."
+    - text: "Gracias por confiar en mí y ser vulnerable 🌟 Eso no es fácil."
+
+actions:
+  - action_analizar_emocion
+  - action_guardar_emocion
+  - action_detectar_crisis
+  - action_sugerir_tecnica
+  - action_dar_seguimiento
+  - action_validar_intensidad
+
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: true
