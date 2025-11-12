@@ -1,84 +1,143 @@
+// frontend/src/components/Paciente/ChatApoyoRasa.js
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Loader } from 'lucide-react';
+import { Send, Bot, User, AlertCircle, CheckCircle } from 'lucide-react';
 
 const ChatApoyoRasa = ({ setCurrentView }) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState('');
   const messagesEndRef = useRef(null);
+  const hasInitialized = useRef(false); // ✅ NUEVO: Evita doble inicialización
 
-  const API_URL = 'http://localhost:8000/api';
+  const RASA_URL = 'http://localhost:5006/webhooks/rest/webhook';
+  const userData = JSON.parse(localStorage.getItem('user') || '{}');
+  const userId = `paciente_${userData.user_id || 'unknown'}`;
 
   useEffect(() => {
-    setMessages([{
-      role: 'assistant',
-      content: '¡Hola! 👋 Soy tu asistente de apoyo emocional. Estoy aquí para escucharte. ¿Cómo te sientes hoy?',
-      timestamp: new Date().toISOString()
-    }]);
+    // ✅ SOLO INICIALIZAR UNA VEZ
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      checkRasaConnection();
+      addMessage('bot', '¡Hola! 👋 Soy tu asistente de apoyo emocional. Estoy aquí para escucharte. ¿Cómo te sientes hoy?');
+    }
   }, []);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
+  const checkRasaConnection = async () => {
+    try {
+      const response = await fetch('http://localhost:5006/', {
+        method: 'GET'
+      });
+      
+      if (response.ok) {
+        setIsConnected(true);
+        setConnectionError('');
+      } else {
+        throw new Error('Servidor no disponible');
+      }
+    } catch (error) {
+      console.error('Error conectando con Rasa:', error);
+      setIsConnected(false);
+      setConnectionError('No se pudo conectar con el servidor. Asegúrate de que Rasa esté corriendo en el puerto 5006.');
+    }
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const addMessage = (role, content, emotion = null) => {
+    const newMessage = {
+      id: `${Date.now()}-${Math.random()}`, // ✅ ID único para evitar duplicados
+      role,
+      content,
+      emotion,
+      timestamp: new Date().toISOString()
+    };
+    
+    setMessages(prev => {
+      // ✅ EVITAR DUPLICADOS: Verificar si el mensaje ya existe
+      const isDuplicate = prev.some(msg => 
+        msg.content === content && 
+        msg.role === role &&
+        Date.now() - new Date(msg.timestamp).getTime() < 1000 // Dentro del último segundo
+      );
+      
+      if (isDuplicate) {
+        console.log('⚠️ Mensaje duplicado detectado, ignorando:', content.substring(0, 50));
+        return prev;
+      }
+      
+      return [...prev, newMessage];
+    });
   };
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || loading) return;
 
-    const userMessage = {
-      role: 'user',
-      content: inputMessage,
-      timestamp: new Date().toISOString()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+    const userMessageText = inputMessage.trim();
     setInputMessage('');
+    
+    // Agregar mensaje del usuario
+    addMessage('user', userMessageText);
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(`${API_URL}/chat/enviar-mensaje`, {
+      // Enviar mensaje a Rasa
+      const response = await fetch(RASA_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          mensaje: inputMessage
+          sender: userId,
+          message: userMessageText
         })
       });
 
       if (!response.ok) {
-        throw new Error('Error al enviar mensaje');
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
       
-      const respuestas = data.respuestas || [data.respuesta || 'Lo siento, no pude procesar tu mensaje.'];
-      
-      respuestas.forEach((respuesta, index) => {
-        setTimeout(() => {
-          const assistantMessage = {
-            role: 'assistant',
-            content: respuesta,
-            emotion: data.emocion_detectada,
-            timestamp: new Date().toISOString()
-          };
-          setMessages(prev => [...prev, assistantMessage]);
-        }, index * 500);
-      });
+      console.log('📥 Respuesta de Rasa:', data);
+
+      // ✅ PROCESAR RESPUESTAS SIN DUPLICAR
+      if (data && data.length > 0) {
+        // Agrupar todas las respuestas en un solo mensaje si vienen juntas
+        const respuestasTexto = data
+          .filter(r => r.text)
+          .map(r => r.text);
+        
+        if (respuestasTexto.length > 0) {
+          // Opción 1: Combinar todas en un mensaje
+          const respuestaCombinada = respuestasTexto.join('\n\n');
+          addMessage('bot', respuestaCombinada);
+          
+          // Opción 2: Mostrar una por una con delay (comentada por defecto)
+          /*
+          respuestasTexto.forEach((texto, index) => {
+            setTimeout(() => {
+              addMessage('bot', texto);
+            }, index * 800);
+          });
+          */
+        }
+      } else {
+        addMessage('bot', 'Disculpa, no pude procesar tu mensaje. ¿Puedes intentar reformularlo?');
+      }
       
     } catch (error) {
-      console.error('Error:', error);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: '⚠️ No se pudo enviar el mensaje. Verifica que Rasa esté corriendo.',
-        timestamp: new Date().toISOString()
-      }]);
+      console.error('❌ Error enviando mensaje:', error);
+      setIsConnected(false);
+      addMessage('bot', '⚠️ Hubo un error al comunicarme con el servidor. Por favor, verifica que Rasa esté corriendo.');
     } finally {
       setLoading(false);
     }
@@ -89,6 +148,11 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const retryConnection = () => {
+    setConnectionError('');
+    checkRasaConnection();
   };
 
   return (
@@ -102,7 +166,19 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
             </div>
             <div>
               <h2 className="text-2xl font-bold">Chat de Apoyo Emocional</h2>
-              <p className="text-emerald-100 text-sm">Aquí estoy para escucharte 💚</p>
+              <div className="flex items-center space-x-2">
+                {isConnected ? (
+                  <>
+                    <div className="w-2 h-2 bg-green-300 rounded-full animate-pulse"></div>
+                    <p className="text-emerald-100 text-sm">Conectado</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-2 h-2 bg-red-300 rounded-full"></div>
+                    <p className="text-red-100 text-sm">Desconectado</p>
+                  </>
+                )}
+              </div>
             </div>
           </div>
           <button
@@ -114,11 +190,41 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
         </div>
       </div>
 
+      {/* Connection Error Alert */}
+      {!isConnected && connectionError && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 m-4 rounded-lg">
+          <div className="flex items-start">
+            <AlertCircle className="w-5 h-5 text-yellow-600 mr-3 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-yellow-800 mb-1">
+                Problema de Conexión
+              </h4>
+              <p className="text-sm text-yellow-700 mb-3">
+                {connectionError}
+              </p>
+              <button
+                onClick={retryConnection}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all text-sm font-medium"
+              >
+                🔄 Reintentar Conexión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
-        {messages.map((message, index) => (
+        {messages.length === 0 && (
+          <div className="text-center text-gray-500 mt-20">
+            <Bot className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p>Inicia una conversación...</p>
+          </div>
+        )}
+
+        {messages.map((message) => (
           <div
-            key={index}
+            key={message.id}
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
@@ -141,7 +247,7 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
                 )}
               </div>
 
-              {/* Message */}
+              {/* Message Bubble */}
               <div
                 className={`rounded-2xl px-5 py-3 shadow-md ${
                   message.role === 'user'
@@ -149,7 +255,9 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
                     : 'bg-white text-gray-800 border border-gray-200'
                 }`}
               >
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                  {message.content}
+                </p>
                 
                 {message.emotion && message.role === 'assistant' && (
                   <div className="mt-2 pt-2 border-t border-gray-200">
@@ -172,11 +280,20 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
           </div>
         ))}
 
+        {/* Typing Indicator */}
         {loading && (
           <div className="flex justify-start">
-            <div className="flex items-center space-x-2 bg-white rounded-2xl px-5 py-3 shadow-md border border-gray-200">
-              <Loader className="w-5 h-5 text-blue-500 animate-spin" />
-              <p className="text-sm text-gray-600">Pensando...</p>
+            <div className="flex items-start space-x-2 max-w-[80%]">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                <Bot className="w-6 h-6 text-white" />
+              </div>
+              <div className="bg-white rounded-2xl px-5 py-3 shadow-md border border-gray-200">
+                <div className="flex space-x-2">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -191,22 +308,30 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Escribe cómo te sientes... 💭"
-            disabled={loading}
+            placeholder={isConnected ? "Escribe cómo te sientes... 💭" : "Conectando al servidor..."}
+            disabled={loading || !isConnected}
             rows="2"
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none disabled:bg-gray-100"
+            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
           <button
             onClick={handleSendMessage}
-            disabled={loading || !inputMessage.trim()}
+            disabled={loading || !inputMessage.trim() || !isConnected}
             className="bg-gradient-to-r from-emerald-600 to-blue-600 text-white p-4 rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="w-5 h-5" />
           </button>
         </div>
-        <p className="text-xs text-gray-500 mt-2">
-          💡 Presiona Enter para enviar, Shift+Enter para nueva línea
-        </p>
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-xs text-gray-500">
+            💡 Presiona Enter para enviar, Shift+Enter para nueva línea
+          </p>
+          {isConnected && (
+            <div className="flex items-center space-x-1 text-xs text-green-600">
+              <CheckCircle className="w-3 h-3" />
+              <span>Conectado a Rasa</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,24 +1,20 @@
+# rasa_chatbot/data/nlu.yml
+
 version: "3.1"
 
 nlu:
 - intent: saludar
   examples: |
     - hola
-    - hey
     - buenos días
     - buenas tardes
-    - buenas noches
     - qué tal
-    - cómo estás
-    - hola bot
+    - hey
     - saludos
-    - ey
-    - holi
+    - hola bot
+    - hola asistente
     - buenas
-    - hello
-    - que onda
     - qué hay
-    - cómo va todo
 
 - intent: despedirse
   examples: |
@@ -27,349 +23,101 @@ nlu:
     - nos vemos
     - chao
     - bye
+    - hasta pronto
     - me voy
     - tengo que irme
-    - hasta pronto
-    - me despido
-    - gracias por todo
-    - ya me voy
-    - te dejo
     - hasta la próxima
-    - cuídate
-    - nos hablamos
-
-- intent: afirmar
-  examples: |
-    - sí
-    - si
-    - claro
-    - por supuesto
-    - efectivamente
-    - correcto
-    - exacto
-    - así es
-    - vale
-    - ok
-    - está bien
-    - de acuerdo
-    - ajá
-    - eso mismo
-    - confirmo
-
-- intent: negar
-  examples: |
-    - no
-    - para nada
-    - nada
-    - no gracias
-    - no realmente
-    - en absoluto
-    - negativo
-    - no es así
-    - no es eso
-    - no creo
-    - no mucho
-    - no tanto
+    - ya me voy
 
 - intent: sentirse_bien
   examples: |
     - me siento bien
-    - estoy feliz
-    - estoy contento
-    - me siento genial
-    - estoy de buen humor
-    - me siento alegre
-    - todo va bien
     - estoy mejor
-    - me siento muy bien hoy
-    - tengo un buen día
-    - estoy emocionado
-    - me siento increíble
-    - estoy en paz
-    - me siento tranquilo
-    - estoy de maravilla
-    - me encuentro bien
-    - todo está genial
-    - me siento fenomenal
-    - estoy súper bien
+    - me encuentro genial
+    - hoy fue un buen día
+    - todo va bien
+    - estoy de buen ánimo
+    - me siento fantástico
+    - todo está mejorando
     - me siento renovado
-    - tengo energía positiva
+    - estoy tranquilo
+
+- intent: alegria
+  examples: |
+    - estoy muy feliz
+    - qué alegría
+    - me hace muy feliz
+    - estoy contento
+    - me siento radiante
+    - estoy eufórico
+    - qué emoción
+    - estoy muy animado
+    - me siento increíble
 
 - intent: sentirse_mal
   examples: |
     - me siento mal
     - no estoy bien
-    - estoy triste
-    - me siento deprimido
-    - estoy bajoneado
-    - no me siento bien
-    - estoy decaído
-    - me siento horrible
+    - estoy pasando por un mal momento
+    - las cosas no van bien
     - todo está mal
-    - no puedo más
-    - estoy fatal
-    - me siento terrible
-    - estoy destrozado
-    - me duele todo
-    - no me encuentro bien
-    - estoy muy mal
-    - me siento pésimo
-    - todo me sale mal
-    - estoy hundido
-    - no sé qué me pasa
-    - algo no anda bien
-
-- intent: ansiedad
-  examples: |
-    - estoy ansioso
-    - me siento ansioso
-    - tengo ansiedad
-    - estoy nervioso
-    - me da miedo
-    - estoy preocupado
-    - no puedo dejar de pensar
-    - mi mente no para
-    - estoy agobiado
-    - me siento abrumado
-    - tengo mucha ansiedad
-    - siento que algo malo va a pasar
-    - no puedo controlar mis pensamientos
-    - me tiemblan las manos
-    - mi corazón late rápido
-    - siento presión en el pecho
-    - me cuesta respirar por los nervios
-    - estoy muy intranquilo
-    - tengo pánico
-    - me siento inquieto
-    - no puedo estar quieto
-    - siento un nudo en el estómago
-    - me sudan las manos
-    - me ahogo
-    - siento que me voy a desmayar
-    - tengo taquicardia
-    - me duele el pecho de la ansiedad
-    - tengo miedo constante
-    - vivo angustiado
+    - me siento horrible
+    - estoy decaído
+    - no me siento yo mismo
+    - me siento desanimado
+    - estoy bajoneado
 
 - intent: tristeza
   examples: |
-    - estoy triste
-    - me siento triste
-    - tengo ganas de llorar
-    - quiero llorar
-    - me siento solo
+    - me siento muy triste
+    - tengo mucha tristeza
     - estoy deprimido
+    - me siento abatido
+    - todo me da tristeza
+    - lloro todo el tiempo
+    - estoy desanimado
     - no tengo ganas de nada
     - me siento vacío
+    - me siento solo y triste
     - todo me da igual
-    - nada me hace feliz
-    - me siento melancólico
-    - extraño a alguien
-    - me duele el alma
-    - siento un vacío en el pecho
     - no encuentro sentido a nada
-    - me siento desanimado
-    - perdí a alguien importante
-    - estoy llorando
-    - no paro de llorar
-    - todo me hace llorar
-    - me siento vacío por dentro
-    - ya no disfruto nada
-    - he perdido la ilusión
-    - no tengo motivación
-    - me siento gris
-    - todo es oscuro
-    - no veo salida
-    - me siento perdido
+
+- intent: ansiedad
+  examples: |
+    - tengo ansiedad
+    - me siento ansioso
+    - estoy nervioso
+    - no puedo estar tranquilo
+    - mi mente no para
+    - estoy muy alterado
+    - siento que algo malo va a pasar
+    - no puedo calmarme
+    - mi corazón late muy rápido
+    - siento que me falta el aire
 
 - intent: estres
   examples: |
     - estoy estresado
     - tengo mucho estrés
-    - estoy muy estresado
+    - todo me estresa
     - me siento agobiado
-    - tengo mucha presión
-    - no doy más
-    - es demasiado para mí
-    - tengo mucho trabajo
-    - no puedo con todo
-    - me siento sobrepasado
-    - estoy al límite
-    - tengo demasiadas responsabilidades
-    - no tengo tiempo para nada
-    - me siento abrumado por todo
-    - todo se acumula
-    - siento que voy a explotar
+    - tengo demasiadas cosas encima
+    - no doy más con todo
+    - estoy al límite del estrés
+    - me siento saturado
+    - tengo demasiada presión
     - no aguanto más
-    - tengo mucha carga
-    - estoy saturado
-    - me desborda todo
-    - no puedo más con esto
-    - me supera la situación
-    - estoy colapsado
-    - tengo mil cosas que hacer
-    - no me alcanza el tiempo
-    - estoy exhausto
 
 - intent: soledad
   examples: |
-    - me siento solo
-    - estoy solo
+    - me siento muy solo
     - nadie me entiende
-    - no tengo a nadie
-    - me siento aislado
-    - nadie me escucha
-    - todos me ignoran
-    - no tengo amigos
-    - estoy completamente solo
+    - estoy aislado
+    - no tengo con quien hablar
     - me siento abandonado
     - nadie se preocupa por mí
-    - me siento invisible
-    - no tengo con quién hablar
-    - extraño tener compañía
-    - me siento desconectado de todos
-    - nadie me comprende
-    - estoy alejado de todos
-    - me falta compañía
-    - necesito alguien
-    - me siento vacío de amor
-    - nadie está para mí
-    - estoy rodeado pero me siento solo
-
-- intent: insomnio
-  examples: |
-    - no puedo dormir
-    - tengo insomnio
-    - no puedo conciliar el sueño
-    - me desvelo
-    - me despierto en la noche
-    - duermo mal
-    - me cuesta dormir
-    - no logro descansar
-    - paso las noches en vela
-    - mi mente no me deja dormir
-    - me la paso dando vueltas en la cama
-    - no pego ojo
-    - duermo muy poco
-    - me despierto cansado
-    - no duermo bien
-    - tengo problemas para dormir
-    - me despierto varias veces
-    - duermo inquieto
-    - las noches son largas
-    - no descanso nada
-
-- intent: preocupacion
-  examples: |
-    - estoy preocupado
-    - me preocupa el futuro
-    - tengo miedo de lo que pueda pasar
-    - no sé qué va a pasar
-    - me preocupa mi familia
-    - me preocupa mi trabajo
-    - me preocupa mi salud
-    - tengo mucha preocupación
-    - no puedo dejar de preocuparme
-    - todo me preocupa
-    - vivo preocupado
-    - me angustia el mañana
-    - me inquieta lo que viene
-    - tengo miedo al futuro
-    - me da miedo lo que pasará
-    - pienso demasiado en el futuro
-    - me preocupan muchas cosas
-    - estoy intranquilo por
-
-- intent: frustracion
-  examples: |
-    - estoy frustrado
-    - me siento frustrado
-    - nada me sale bien
-    - todo sale mal
-    - me siento impotente
-    - no logro mis objetivos
-    - me siento incapaz
-    - estoy harto
-    - ya no sé qué hacer
-    - me rindo
-    - todo es tan difícil
-    - por más que intento no funciona
-    - me siento bloqueado
-    - no avanzo en nada
-    - siempre fallo
-    - no puedo conseguirlo
-    - me siento inútil
-    - no sirvo para esto
-    - nada funciona
-    - todo me sale al revés
-
-- intent: enojo
-  examples: |
-    - estoy enojado
-    - estoy muy molesto
-    - me da rabia
-    - me enoja
-    - estoy furioso
-    - estoy irritado
-    - me hace enojar
-    - estoy de mal humor
-    - todo me molesta
-    - me dan ganas de gritar
-    - estoy a punto de explotar
-    - me saca de quicio
-    - no aguanto más
-    - estoy indignado
-    - me tiene harto
-    - estoy que exploto
-    - me hierve la sangre
-    - estoy cabreado
-    - me enfurece
-    - estoy iracundo
-
-- intent: miedo
-  examples: |
-    - tengo miedo
-    - me da miedo
-    - estoy asustado
-    - siento pánico
-    - me aterra
-    - tengo temor
-    - me da terror
-    - estoy aterrado
-    - tengo pavor
-    - me dan escalofríos
-    - me paraliza el miedo
-    - siento que algo malo pasará
-    - no puedo controlar mi miedo
-    - me da mucho miedo
-    - tengo fobia
-    - me atemoriza
-    - me espanta
-    - estoy atemorizado
-    - siento terror
-    - me da pánico
-
-- intent: alegria
-  examples: |
-    - estoy feliz
-    - me siento alegre
-    - estoy emocionado
-    - estoy eufórico
-    - me siento genial
-    - estoy radiante
-    - me siento pleno
-    - estoy muy contento
-    - me siento maravilloso
-    - todo me sale bien
-    - me pasó algo bueno
-    - tengo buenas noticias
-    - logré algo importante
-    - estoy celebrando
-    - me siento fantástico
-    - estoy de fiesta
-    - tengo mucha alegría
-    - me siento realizado
-    - estoy en la cima
+    - estoy solo en esto
+    - me siento incomprendido
 
 - intent: agradecimiento
   examples: |
@@ -377,68 +125,123 @@ nlu:
     - muchas gracias
     - te agradezco
     - gracias por escucharme
-    - gracias por tu ayuda
-    - agradezco tu apoyo
-    - me ayudaste mucho
-    - me siento mejor gracias a ti
-    - eres de gran ayuda
-    - mil gracias
-    - te lo agradezco mucho
-    - gracias por estar
-    - agradezco que estés aquí
-    - gracias por tu tiempo
-    - gracias por comprenderme
+    - eres de mucha ayuda
+    - aprecio tu apoyo
+    - gracias por estar ahí
 
 - intent: pedir_ayuda
   examples: |
-    - ayúdame
     - necesito ayuda
-    - no sé qué hacer
-    - qué puedo hacer
-    - dame un consejo
-    - qué me recomiendas
-    - necesito que me ayudes
     - puedes ayudarme
-    - qué hago
+    - no sé qué hacer
+    - ayúdame por favor
+    - necesito que me ayudes
+    - requiero apoyo
     - necesito orientación
-    - dame una sugerencia
-    - qué debería hacer
-    - cómo lo manejo
-    - necesito apoyo
-    - necesito guía
-    - qué me aconsejas
-    - cómo salgo de esto
-    - qué me sugieres
+    - ayuda
 
 - intent: estado_animo
   examples: |
-    - cómo me siento
-    - qué emociones tengo
+    - cómo estoy
     - no sé cómo me siento
-    - estoy confundido
-    - no entiendo mis emociones
-    - siento muchas cosas
-    - es complicado
-    - tengo emociones mezcladas
-    - no sé qué me pasa
-    - siento algo raro
-    - estoy hecho un lío
-    - es difícil de explicar
-    - no puedo identificarlo
-    - siento muchas cosas a la vez
     - estoy confundido emocionalmente
+    - mi ánimo está raro
+    - no entiendo mis emociones
+    - tengo sentimientos encontrados
+
+- intent: insomnio
+  examples: |
+    - no puedo dormir
+    - tengo insomnio
+    - no duermo bien
+    - me despierto mucho en la noche
+    - no descanso
+    - no logro conciliar el sueño
+
+- intent: preocupacion
+  examples: |
+    - estoy muy preocupado por todo
+    - me preocupa todo lo que pasa
+    - tengo muchas preocupaciones
+    - no dejo de pensar en problemas
+    - todo me inquieta
+
+- intent: frustracion
+  examples: |
+    - estoy frustrado
+    - me siento impotente
+    - nada sale como quiero
+    - todo me sale mal
+    - estoy desesperado por la situación
+
+- intent: enojo
+  examples: |
+    - estoy enojado
+    - tengo mucha rabia
+    - estoy furioso
+    - me da coraje
+    - estoy molesto con todo
+    - estoy irritado
+    - me da rabia
+    - estoy harto
+
+- intent: miedo
+  examples: |
+    - tengo mucho miedo
+    - me da terror esta situación
+    - estoy asustado
+    - tengo temor constante
+    - me aterra lo que pueda pasar
+    - tengo pánico
+
+- intent: afirmar
+  examples: |
+    - sí
+    - claro
+    - por supuesto
+    - exacto
+    - así es
+    - correcto
+    - vale
+    - ok
+    - está bien
+    - de acuerdo
+    - si
+    - see
+
+- intent: negar
+  examples: |
+    - no
+    - para nada
+    - no creo
+    - no es así
+    - negativo
+    - no gracias
+    - no quiero
+    - prefiero que no
 
 - intent: contar_mas
   examples: |
     - te cuento más
     - déjame explicarte
-    - es que pasa que
+    - hay más que decir
+    - además de eso
+    - también me pasa
+    - es que hay algo más
     - lo que pasa es que
-    - además
-    - también
-    - otra cosa
-    - y encima
-    - y no solo eso
-    - por si fuera poco
-    - te explico mejor
-    - es más complejo
+    - resulta que
+    - pero además
+    - y también
+    - es que
+    - la verdad es que
+    - lo que sucede es
+    - bueno pues
+    - mi jefe me echó del trabajo
+    - perdí mi empleo
+    - me despidieron
+    - mi pareja me dejó
+    - terminé con mi pareja
+    - tengo problemas económicos
+    - no tengo dinero
+    - mi familia no me entiende
+    - discutí con alguien

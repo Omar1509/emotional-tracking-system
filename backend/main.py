@@ -1,11 +1,13 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+# backend/main.py
+
+from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from mongodb_config import mongodb_service
 from routers import chat_rasa
 from datetime import datetime, timedelta, date
-from typing import List, Optional
+from typing import List, Optional, Dict
 import jwt
 from passlib.context import CryptContext
 import re
@@ -550,9 +552,122 @@ def registrar_psicologo(
         "instrucciones": "Comparte estas credenciales"
     }
 
+# ============= NUEVOS ENDPOINTS PARA RASA =============
+
+@app.post("/api/chat/guardar-analisis", tags=["Chat"])
+async def guardar_analisis_emocional(data: Dict):
+    """
+    Endpoint para que Rasa guarde análisis emocionales en MongoDB
+    """
+    try:
+        # Guardar en MongoDB
+        mongodb_service.save_emotional_text(
+            user_id=data.get('paciente_id', 999),
+            text=data.get('mensaje', ''),
+            emotional_analysis={
+                'sentiment': data.get('sentimiento', {}),
+                'emotions': {
+                    'dominant_emotion': data.get('emocion_principal', 'neutral'),
+                    'confidence': data.get('confianza', 0.5),
+                    'mixed_emotions': data.get('emociones_mixtas', [])
+                },
+                'risk_assessment': {
+                    'level': data.get('nivel_riesgo', 'bajo'),
+                    'score': data.get('score_riesgo', 0.0)
+                }
+            },
+            source=data.get('contexto', 'chat_rasa')
+        )
+        
+        print(f"✅ Análisis guardado en MongoDB para paciente {data.get('paciente_id')}")
+        
+        return {"status": "success", "message": "Análisis guardado"}
+    
+    except Exception as e:
+        print(f"⚠️ Error guardando análisis: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+@app.post("/api/alertas/crisis", tags=["Alertas"])
+async def recibir_alerta_crisis(
+    data: Dict,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Recibe alertas de crisis desde Rasa y notifica al psicólogo
+    """
+    try:
+        paciente_id = data.get('paciente_id')
+        nivel = data.get('nivel_crisis', 'alto')
+        mensaje = data.get('mensaje', '')
+        
+        print(f"🚨 ALERTA DE CRISIS RECIBIDA - Paciente {paciente_id} - Nivel: {nivel}")
+        
+        # Buscar paciente
+        paciente = db.query(models.Usuario).filter(
+            models.Usuario.id_usuario == paciente_id
+        ).first()
+        
+        if not paciente:
+            print(f"⚠️ Paciente {paciente_id} no encontrado")
+            return {"status": "error", "message": "Paciente no encontrado"}
+        
+        # Buscar psicólogo asignado
+        asignacion = db.query(models.PacientePsicologo).filter(
+            models.PacientePsicologo.id_paciente == paciente_id,
+            models.PacientePsicologo.activo == True
+        ).first()
+        
+        if asignacion:
+            # Crear notificación en PostgreSQL
+            notificacion = models.Notificacion(
+                id_usuario=asignacion.id_psicologo,
+                tipo=models.NotificationType.ALERTA,
+                titulo=f"🚨 ALERTA DE CRISIS - NIVEL {nivel.upper()}",
+                mensaje=(
+                    f"El paciente {paciente.nombre} {paciente.apellido} ha mostrado "
+                    f"indicadores de crisis nivel {nivel} en el chat.\n\n"
+                    f"Mensaje: {mensaje[:200]}{'...' if len(mensaje) > 200 else ''}\n\n"
+                    f"⚠️ SE REQUIERE ATENCIÓN INMEDIATA"
+                ),
+                prioridad="critica" if nivel == 'crítico' else "alta",
+                datos_extra=str(data)
+            )
+            db.add(notificacion)
+            db.commit()
+            
+            print(f"✅ Notificación de crisis creada para psicólogo {asignacion.id_psicologo}")
+            
+            # TODO: Enviar notificación push via Firebase
+            # background_tasks.add_task(
+            #     enviar_push_crisis, 
+            #     asignacion.id_psicologo, 
+            #     paciente.nombre,
+            #     nivel
+            # )
+        else:
+            print(f"⚠️ No se encontró psicólogo asignado para paciente {paciente_id}")
+        
+        return {
+            "status": "success",
+            "message": "Alerta procesada",
+            "nivel": nivel,
+            "paciente": f"{paciente.nombre} {paciente.apellido}",
+            "notificacion_creada": asignacion is not None
+        }
+    
+    except Exception as e:
+        print(f"❌ Error procesando alerta de crisis: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/health", tags=["Sistema"])
 def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow()}
+
 
 if __name__ == "__main__":
     import uvicorn
