@@ -1,0 +1,8 @@
+# rasa_chatbot/requirements-actions.txt
+
+rasa-sdk==3.6.2
+transformers==4.35.2
+torch==2.0.0
+sentencepiece==0.1.99
+requests==2.31.0
+numpy==1.24.3

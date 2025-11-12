@@ -1,208 +1,167 @@
+# rasa_chatbot/data/stories.yml
+
 version: "3.1"
 
 stories:
 
-- story: conversacion_inicial_positiva
+- story: saludo_inicial
   steps:
   - intent: saludar
   - action: utter_saludar
-  - intent: sentirse_bien
-  - action: utter_sentirse_bien
-  - action: action_analizar_emocion
-  - action: action_guardar_emocion
-  - action: utter_seguimiento_como_te_sientes
 
-- story: conversacion_inicial_negativa
-  steps:
-  - intent: saludar
-  - action: utter_saludar
-  - intent: sentirse_mal
-  - action: utter_sentirse_mal
-  - action: action_analizar_emocion
-  - action: action_detectar_crisis
-  - action: action_guardar_emocion
-  - action: utter_pedir_mas_info
-
-- story: manejo_ansiedad_completo
-  steps:
-  - intent: ansiedad
-  - action: utter_validar_ansiedad
-  - action: action_analizar_emocion
-  - action: utter_preguntar_intensidad
-  - intent: contar_mas
-  - action: utter_pedir_mas_info
-  - action: action_guardar_emocion
-  - action: utter_tecnica_respiracion
-  - action: action_sugerir_tecnica
-  - action: utter_seguimiento_como_te_sientes
-
-- story: manejo_tristeza_profunda
+- story: conversacion_tristeza_completa
   steps:
   - intent: tristeza
+  - action: action_analizar_emocion_avanzado
   - action: utter_validar_tristeza
-  - action: action_analizar_emocion
-  - action: utter_pedir_mas_info
   - intent: contar_mas
+  - action: action_analizar_emocion_avanzado
+  - action: action_respuesta_contextual
   - action: utter_empatia_general
-  - action: action_guardar_emocion
-  - action: utter_reflejar_progreso
   - action: utter_recordar_psicologo
 
-- story: manejo_estres_intenso
+- story: conversacion_ansiedad_con_ayuda
+  steps:
+  - intent: ansiedad
+  - action: action_analizar_emocion_avanzado
+  - action: utter_validar_ansiedad
+  - intent: contar_mas
+  - action: action_analizar_emocion_avanzado
+  - action: utter_tecnica_respiracion
+  - intent: afirmar
+  - action: action_dar_seguimiento
+  - action: utter_reflejar_progreso
+
+- story: conversacion_estres_trabajo
   steps:
   - intent: estres
+  - action: action_analizar_emocion_avanzado
   - action: utter_validar_estres
-  - action: action_analizar_emocion
-  - action: utter_preguntar_intensidad
-  - action: action_guardar_emocion
+  - intent: contar_mas
+  - action: action_analizar_emocion_avanzado
   - action: utter_tecnica_grounding
-  - action: action_sugerir_tecnica
   - action: utter_empatia_general
 
-- story: manejo_soledad_con_seguimiento
+- story: sentirse_mal_general
   steps:
-  - intent: soledad
-  - action: utter_validar_soledad
-  - action: action_analizar_emocion
+  - intent: sentirse_mal
+  - action: action_analizar_emocion_avanzado
   - action: utter_pedir_mas_info
   - intent: contar_mas
-  - action: action_guardar_emocion
-  - action: utter_reflejar_progreso
+  - action: action_analizar_emocion_avanzado
+  - action: action_respuesta_contextual
+  - action: utter_empatia_general
+
+- story: crisis_detectada_automatica
+  steps:
+  - intent: tristeza
+  - action: action_analizar_emocion_avanzado
+  - slot_was_set:
+    - nivel_crisis: crítico
+  - action: action_protocolo_crisis
+  - action: utter_crisis
+
+- story: enojo_validacion
+  steps:
+  - intent: enojo
+  - action: action_analizar_emocion_avanzado
+  - action: utter_validar_enojo
+  - intent: contar_mas
+  - action: action_analizar_emocion_avanzado
+  - action: utter_tecnica_respiracion
+  - action: utter_empatia_general
+
+- story: miedo_apoyo
+  steps:
+  - intent: miedo
+  - action: action_analizar_emocion_avanzado
+  - action: utter_validar_miedo
+  - intent: contar_mas
+  - action: action_analizar_emocion_avanzado
+  - action: utter_empatia_general
   - action: utter_recordar_psicologo
 
-- story: conversacion_larga_con_multiples_emociones
+- story: soledad_conexion
   steps:
-  - intent: saludar
-  - action: utter_saludar
-  - intent: ansiedad
-  - action: utter_validar_ansiedad
-  - action: action_analizar_emocion
-  - action: utter_preguntar_intensidad
-  - intent: tristeza
-  - action: utter_validar_tristeza
-  - action: utter_pedir_mas_info
+  - intent: soledad
+  - action: action_analizar_emocion_avanzado
+  - action: utter_validar_soledad
   - intent: contar_mas
-  - action: action_guardar_emocion
-  - action: utter_tecnica_respiracion
+  - action: action_analizar_emocion_avanzado
+  - action: utter_empatia_general
+
+- story: celebrar_progreso
+  steps:
+  - intent: alegria
+  - action: action_analizar_emocion_avanzado
+  - action: utter_sentirse_bien
   - action: utter_reflejar_progreso
+
+- story: agradecimiento_cierre
+  steps:
   - intent: agradecimiento
   - action: utter_agradecimiento
   - intent: despedirse
   - action: utter_despedirse
 
-- story: pedir_ayuda_con_respuesta
+- story: pedir_ayuda_directa
   steps:
   - intent: pedir_ayuda
+  - action: action_analizar_emocion_avanzado
   - action: utter_pedir_mas_info
   - intent: contar_mas
-  - action: action_analizar_emocion
-  - action: action_guardar_emocion
-  - action: action_sugerir_tecnica
+  - action: action_analizar_emocion_avanzado
+  - action: action_respuesta_contextual
   - action: utter_recordar_psicologo
 
-- story: usuario_confundido_emocionalmente
+- story: conversacion_extendida
+  steps:
+  - intent: saludar
+  - action: utter_saludar
+  - intent: sentirse_mal
+  - action: action_analizar_emocion_avanzado
+  - action: utter_pedir_mas_info
+  - intent: contar_mas
+  - action: action_analizar_emocion_avanzado
+  - action: action_respuesta_contextual
+  - intent: contar_mas
+  - action: action_analizar_emocion_avanzado
+  - action: utter_empatia_general
+  - action: utter_recordar_psicologo
+  - story: estado_animo_consulta
   steps:
   - intent: estado_animo
+  - action: action_analizar_emocion_avanzado
   - action: utter_pedir_mas_info
-  - intent: contar_mas
-  - action: action_analizar_emocion
-  - action: action_guardar_emocion
-  - action: utter_empatia_general
-  - action: utter_reflejar_progreso
 
-- story: ansiedad_con_validacion_intensidad
-  steps:
-  - intent: ansiedad
-  - action: utter_validar_ansiedad
-  - action: action_analizar_emocion
-  - action: utter_preguntar_intensidad
-  - action: action_validar_intensidad
-  - action: action_guardar_emocion
-  - action: utter_tecnica_respiracion
-  - action: utter_seguimiento_como_te_sientes
-
-- story: insomnio_con_tecnicas
-  steps:
-  - intent: insomnio
-  - action: utter_pedir_mas_info
-  - intent: contar_mas
-  - action: action_analizar_emocion
-  - action: utter_tecnica_respiracion
-  - action: action_guardar_emocion
-  - action: utter_recordar_psicologo
-  - intent: agradecimiento
-  - action: utter_agradecimiento
-
-- story: frustracion_con_apoyo
+- story: frustracion_basica
   steps:
   - intent: frustracion
+  - action: action_analizar_emocion_avanzado
   - action: utter_pedir_mas_info
-  - intent: contar_mas
-  - action: action_analizar_emocion
   - action: utter_empatia_general
-  - action: action_guardar_emocion
-  - action: utter_reflejar_progreso
-  - action: utter_recordar_psicologo
 
-- story: enojo_con_grounding
+- story: insomnio_basico
   steps:
-  - intent: enojo
+  - intent: insomnio
+  - action: action_analizar_emocion_avanzado
   - action: utter_pedir_mas_info
-  - intent: contar_mas
-  - action: action_analizar_emocion
-  - action: utter_tecnica_grounding
-  - action: action_guardar_emocion
-  - action: action_sugerir_tecnica
-  - action: utter_seguimiento_como_te_sientes
-
-- story: miedo_con_deteccion_crisis
-  steps:
-  - intent: miedo
-  - action: utter_pedir_mas_info
-  - intent: contar_mas
-  - action: action_analizar_emocion
-  - action: action_detectar_crisis
   - action: utter_tecnica_respiracion
-  - action: action_guardar_emocion
-  - action: utter_recordar_psicologo
 
-- story: celebrar_alegria_y_reforzar
-  steps:
-  - intent: alegria
-  - action: utter_sentirse_bien
-  - action: action_analizar_emocion
-  - action: action_guardar_emocion
-  - action: utter_reflejar_progreso
-  - action: utter_seguimiento_como_te_sientes
-
-- story: preocupacion_con_seguimiento
+- story: preocupacion_basica
   steps:
   - intent: preocupacion
-  - action: utter_validar_ansiedad
-  - action: action_analizar_emocion
+  - action: action_analizar_emocion_avanzado
   - action: utter_pedir_mas_info
-  - intent: contar_mas
-  - action: action_guardar_emocion
-  - action: utter_tecnica_respiracion
-  - action: utter_recordar_psicologo
-
-- story: conversacion_con_afirmacion
-  steps:
-  - intent: pedir_ayuda
-  - action: utter_pedir_mas_info
-  - intent: contar_mas
-  - action: action_analizar_emocion
-  - action: utter_tecnica_respiracion
-  - intent: afirmar
   - action: utter_empatia_general
-  - action: action_guardar_emocion
 
-- story: conversacion_con_negacion
+- story: sentirse_bien_basico
   steps:
-  - intent: ansiedad
-  - action: utter_validar_ansiedad
-  - action: action_analizar_emocion
-  - action: utter_tecnica_respiracion
+  - intent: sentirse_bien
+  - action: action_analizar_emocion_avanzado
+  - action: utter_sentirse_bien
+
+- story: negacion_basica
+  steps:
   - intent: negar
   - action: utter_pedir_mas_info
-  - action: action_guardar_emocion
