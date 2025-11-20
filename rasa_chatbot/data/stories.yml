@@ -1,167 +1,30 @@
 # rasa_chatbot/data/stories.yml
+# REEMPLAZAR TODO EL ARCHIVO
 
 version: "3.1"
 
 stories:
+  - story: conversacion_basica
+    steps:
+      - intent: saludar
+      - action: utter_saludar
+      - intent: expresar_sentimiento
+      - action: action_analizar_emocion_avanzado
+      - action: action_respuesta_con_ia
 
-- story: saludo_inicial
-  steps:
-  - intent: saludar
-  - action: utter_saludar
+  - story: expresar_sentimiento_directamente
+    steps:
+      - intent: expresar_sentimiento
+      - action: action_analizar_emocion_avanzado
+      - action: action_respuesta_con_ia
 
-- story: conversacion_tristeza_completa
-  steps:
-  - intent: tristeza
-  - action: action_analizar_emocion_avanzado
-  - action: utter_validar_tristeza
-  - intent: contar_mas
-  - action: action_analizar_emocion_avanzado
-  - action: action_respuesta_contextual
-  - action: utter_empatia_general
-  - action: utter_recordar_psicologo
-
-- story: conversacion_ansiedad_con_ayuda
-  steps:
-  - intent: ansiedad
-  - action: action_analizar_emocion_avanzado
-  - action: utter_validar_ansiedad
-  - intent: contar_mas
-  - action: action_analizar_emocion_avanzado
-  - action: utter_tecnica_respiracion
-  - intent: afirmar
-  - action: action_dar_seguimiento
-  - action: utter_reflejar_progreso
-
-- story: conversacion_estres_trabajo
-  steps:
-  - intent: estres
-  - action: action_analizar_emocion_avanzado
-  - action: utter_validar_estres
-  - intent: contar_mas
-  - action: action_analizar_emocion_avanzado
-  - action: utter_tecnica_grounding
-  - action: utter_empatia_general
-
-- story: sentirse_mal_general
-  steps:
-  - intent: sentirse_mal
-  - action: action_analizar_emocion_avanzado
-  - action: utter_pedir_mas_info
-  - intent: contar_mas
-  - action: action_analizar_emocion_avanzado
-  - action: action_respuesta_contextual
-  - action: utter_empatia_general
-
-- story: crisis_detectada_automatica
-  steps:
-  - intent: tristeza
-  - action: action_analizar_emocion_avanzado
-  - slot_was_set:
-    - nivel_crisis: crítico
-  - action: action_protocolo_crisis
-  - action: utter_crisis
-
-- story: enojo_validacion
-  steps:
-  - intent: enojo
-  - action: action_analizar_emocion_avanzado
-  - action: utter_validar_enojo
-  - intent: contar_mas
-  - action: action_analizar_emocion_avanzado
-  - action: utter_tecnica_respiracion
-  - action: utter_empatia_general
-
-- story: miedo_apoyo
-  steps:
-  - intent: miedo
-  - action: action_analizar_emocion_avanzado
-  - action: utter_validar_miedo
-  - intent: contar_mas
-  - action: action_analizar_emocion_avanzado
-  - action: utter_empatia_general
-  - action: utter_recordar_psicologo
-
-- story: soledad_conexion
-  steps:
-  - intent: soledad
-  - action: action_analizar_emocion_avanzado
-  - action: utter_validar_soledad
-  - intent: contar_mas
-  - action: action_analizar_emocion_avanzado
-  - action: utter_empatia_general
-
-- story: celebrar_progreso
-  steps:
-  - intent: alegria
-  - action: action_analizar_emocion_avanzado
-  - action: utter_sentirse_bien
-  - action: utter_reflejar_progreso
-
-- story: agradecimiento_cierre
-  steps:
-  - intent: agradecimiento
-  - action: utter_agradecimiento
-  - intent: despedirse
-  - action: utter_despedirse
-
-- story: pedir_ayuda_directa
-  steps:
-  - intent: pedir_ayuda
-  - action: action_analizar_emocion_avanzado
-  - action: utter_pedir_mas_info
-  - intent: contar_mas
-  - action: action_analizar_emocion_avanzado
-  - action: action_respuesta_contextual
-  - action: utter_recordar_psicologo
-
-- story: conversacion_extendida
-  steps:
-  - intent: saludar
-  - action: utter_saludar
-  - intent: sentirse_mal
-  - action: action_analizar_emocion_avanzado
-  - action: utter_pedir_mas_info
-  - intent: contar_mas
-  - action: action_analizar_emocion_avanzado
-  - action: action_respuesta_contextual
-  - intent: contar_mas
-  - action: action_analizar_emocion_avanzado
-  - action: utter_empatia_general
-  - action: utter_recordar_psicologo
-  - story: estado_animo_consulta
-  steps:
-  - intent: estado_animo
-  - action: action_analizar_emocion_avanzado
-  - action: utter_pedir_mas_info
-
-- story: frustracion_basica
-  steps:
-  - intent: frustracion
-  - action: action_analizar_emocion_avanzado
-  - action: utter_pedir_mas_info
-  - action: utter_empatia_general
-
-- story: insomnio_basico
-  steps:
-  - intent: insomnio
-  - action: action_analizar_emocion_avanzado
-  - action: utter_pedir_mas_info
-  - action: utter_tecnica_respiracion
-
-- story: preocupacion_basica
-  steps:
-  - intent: preocupacion
-  - action: action_analizar_emocion_avanzado
-  - action: utter_pedir_mas_info
-  - action: utter_empatia_general
-
-- story: sentirse_bien_basico
-  steps:
-  - intent: sentirse_bien
-  - action: action_analizar_emocion_avanzado
-  - action: utter_sentirse_bien
-
-- story: negacion_basica
-  steps:
-  - intent: negar
-  - action: utter_pedir_mas_info
+  - story: conversacion_extendida
+    steps:
+      - intent: saludar
+      - action: utter_saludar
+      - intent: expresar_sentimiento
+      - action: action_analizar_emocion_avanzado
+      - action: action_respuesta_con_ia
+      - intent: expresar_sentimiento
+      - action: action_analizar_emocion_avanzado
+      - action: action_respuesta_con_ia

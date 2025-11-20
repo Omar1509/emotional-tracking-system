@@ -1,185 +1,50 @@
 # rasa_chatbot/domain.yml
+# REEMPLAZAR TODO EL ARCHIVO
 
 version: "3.1"
 
 intents:
   - saludar
-  - despedirse
-  - sentirse_bien
-  - alegria
-  - sentirse_mal
-  - tristeza
-  - ansiedad
-  - estres
-  - soledad
-  - agradecimiento
+  - despedir
+  - expresar_sentimiento
   - pedir_ayuda
-  - estado_animo
-  - insomnio
-  - preocupacion
-  - frustracion
-  - enojo
-  - miedo
   - afirmar
   - negar
-  - contar_mas
 
-entities:
-  - contexto
-  - intensidad
+actions:
+  - action_analizar_emocion_avanzado
+  - action_respuesta_con_ia
+  - action_guardar_conversacion
+
+responses:
+  utter_saludar:
+    - text: "¡Hola! 👋 Soy tu asistente de apoyo emocional. Estoy aquí para escucharte. ¿Cómo te sientes hoy?"
 
 slots:
-  nivel_crisis:
-    type: text
-    mappings:
-      - type: custom
-  intensidad_emocional:
-    type: float
-    initial_value: 0.5
-    mappings:
-      - type: custom
   emocion_detectada:
     type: text
     mappings:
       - type: custom
-  contexto_conversacion:
+  
+  intensidad_emocional:
+    type: float
+    mappings:
+      - type: custom
+  
+  nivel_crisis:
     type: text
     mappings:
       - type: custom
-  contador_mensajes:
-    type: float
-    initial_value: 0
+  
+  emocion_actual:
+    type: text
     mappings:
       - type: custom
-
-responses:
-  utter_saludar:
-    - text: "Hola, bienvenido/a 😊 Estoy aquí para ti. ¿Cómo te sientes hoy?"
-    - text: "¡Hola! 👋 Me alegra verte por aquí. ¿Cómo ha estado tu día hasta ahora?"
-    - text: "Hola 💙 Gracias por venir. Cuéntame, ¿qué tal te encuentras?"
-
-  utter_despedirse:
-    - text: "Cuídate mucho 💙 Recuerda que siempre estaré aquí cuando me necesites."
-    - text: "Hasta pronto. Me alegra que hayas compartido conmigo. Vuelve cuando quieras 🌟"
-    - text: "Nos vemos pronto. Recuerda que no estás solo/a en esto 💚"
-
-  utter_sentirse_bien:
-    - text: "¡Qué bueno escuchar eso! 😊 Me alegra mucho que te sientas bien. ¿Qué ha ayudado a que te sientas así?"
-    - text: "¡Excelente! 🌟 Es genial saber que las cosas van mejor. ¿Hay algo específico que haya mejorado tu día?"
-
-  utter_validar_tristeza:
-    - text: "Entiendo que te sientas así 💙 La tristeza puede ser muy pesada. ¿Quieres contarme qué está pasando?"
-    - text: "Te escucho. Sé que no es fácil sentirse así 😔 ¿Qué es lo que más te está afectando?"
-    - text: "Puedo sentir que estás pasando por un momento difícil. Estoy aquí para ti 💙 ¿Qué sucedió?"
-
-  utter_validar_ansiedad:
-    - text: "La ansiedad puede ser muy abrumadora 💚 Es como si tu mente no pudiera detenerse, ¿verdad? Cuéntame más."
-    - text: "Entiendo esa sensación 😌 La ansiedad puede hacer que todo se sienta intenso. ¿Qué la está provocando?"
-    - text: "Te comprendo. La ansiedad es difícil de manejar 💙 ¿Hay algo específico que te preocupe ahora?"
-
-  utter_validar_estres:
-    - text: "Puedo sentir que estás bajo mucha presión 😓 ¿Qué es lo que más te está estresando en este momento?"
-    - text: "El estrés puede agotarnos completamente. Te entiendo 💙 ¿Quieres hablar sobre lo que está pasando?"
-
-  utter_validar_enojo:
-    - text: "Es completamente válido sentir enojo 💢 A veces necesitamos expresarlo. ¿Qué te molestó?"
-    - text: "Entiendo tu frustración. El enojo es una emoción natural 💙 ¿Qué pasó?"
-
-  utter_validar_miedo:
-    - text: "El miedo puede paralizarnos 😟 Es normal sentirlo. ¿De qué tienes miedo? Puedes decírmelo."
-    - text: "Te entiendo. El miedo es una emoción muy real 💙 ¿Qué te asusta?"
-
-  utter_validar_soledad:
-    - text: "La soledad puede doler mucho 💙 Pero quiero que sepas que no estás solo/a. Estoy aquí contigo. ¿Quieres contarme más?"
-    - text: "Entiendo esa sensación de soledad 😔 Es muy dura. ¿Qué te hace sentir así?"
-
-  utter_pedir_mas_info:
-    - text: "Cuéntame más sobre eso 💙 Estoy escuchando."
-    - text: "¿Qué más ha pasado? Me interesa entenderte mejor."
-    - text: "¿Puedes contarme un poco más? Quiero ayudarte mejor."
-
-  utter_empatia_general:
-    - text: "Gracias por confiar en mí y contármelo 💙 Sé que no es fácil abrirse."
-    - text: "Te agradezco por compartir esto conmigo. Sé que requiere valentía 💚"
-    - text: "Entiendo lo difícil que debe ser para ti. Gracias por contármelo 💙"
-
-  utter_preguntar_intensidad:
-    - text: "En una escala del 1 al 10, ¿qué tan intenso se siente esto para ti?"
-    - text: "¿Podrías decirme qué tan fuerte es esta emoción ahora mismo? Del 1 al 10."
-
-  utter_tecnica_respiracion:
-    - text: |
-        Entiendo. Te voy a enseñar un ejercicio que puede ayudarte ahora mismo 🌬️
-        
-        **Respiración 4-7-8:**
-        1. Inhala por la nariz contando hasta 4
-        2. Mantén el aire contando hasta 7
-        3. Exhala por la boca contando hasta 8
-        
-        ¿Quieres intentarlo? Solo toma 2 minutos.
-    - text: |
-        Vamos a hacer algo juntos que puede calmarte 💙
-        
-        **Respiración profunda:**
-        • Respira lento y profundo
-        • Cuenta hasta 4 al inhalar
-        • Cuenta hasta 6 al exhalar
-        • Repite 5 veces
-        
-        ¿Lo intentamos?
-
-  utter_tecnica_grounding:
-    - text: |
-        Te propongo un ejercicio para conectarte con el presente 🌟
-        
-        **Técnica 5-4-3-2-1:**
-        • 5 cosas que VES
-        • 4 cosas que TOCAS
-        • 3 cosas que ESCUCHAS
-        • 2 cosas que HUELES
-        • 1 cosa que SABOREAS
-        
-        Esto puede ayudarte a sentirte más presente.
-
-  utter_crisis:
-    - text: |
-        ⚠️ Escucha, lo que estás sintiendo es muy importante y quiero que sepas esto:
-        
-        **Números de Emergencia:**
-        🆘 Línea de Crisis - 911
-        💬 Línea de la Vida (Ecuador) - 1800-VIDA (8432)
-        
-        Por favor, considera hablar con tu psicólogo de inmediato o llamar a estos números.
-        
-        No estás solo/a en esto. Tu vida importa 💙
-
-  utter_agradecimiento:
-    - text: "De nada 💙 Para eso estoy aquí. ¿Hay algo más en lo que pueda ayudarte?"
-    - text: "No tienes que agradecer 😊 Me alegra poder acompañarte. ¿Quieres hablar de algo más?"
-
-  utter_recordar_psicologo:
-    - text: "Recuerda que tu psicólogo está para apoyarte también 💙 Considera hablar con él/ella sobre esto."
-    - text: "Sería bueno que compartieras esto con tu psicólogo. Puede darte el apoyo profesional que necesitas 💚"
-
-  utter_reflejar_progreso:
-    - text: "Has dado un gran paso al hablar de esto 💚 Eso requiere valentía."
-    - text: "Reconozco tu fortaleza al compartir esto conmigo. Es un paso importante 💙"
-
-  utter_default:
-    - text: "Disculpa, no estoy seguro de haber entendido bien 😔 ¿Puedes contármelo de otra forma?"
-    - text: "Perdón, no capté completamente. ¿Podrías explicármelo con otras palabras? 💙"
-    - text: "No estoy seguro de haber comprendido. ¿Puedes darme más detalles? Quiero entenderte bien."
-
-actions:
-  - action_analizar_emocion_avanzado
-  - action_respuesta_contextual
-  - action_resumen_conversacion
-  - action_protocolo_crisis
-  - action_guardar_emocion
-  - action_sugerir_tecnica
-  - action_dar_seguimiento
-  - action_validar_intensidad
-  - action_default_fallback
+  
+  confianza_analisis:
+    type: float
+    mappings:
+      - type: custom
 
 session_config:
   session_expiration_time: 60

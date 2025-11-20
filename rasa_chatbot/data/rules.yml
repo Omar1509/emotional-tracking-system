@@ -1,22 +1,15 @@
+# rasa_chatbot/data/rules.yml
+# REEMPLAZAR TODO EL ARCHIVO
+
 version: "3.1"
 
 rules:
-  - rule: Saludar
+  - rule: Saludar al inicio
     steps:
       - intent: saludar
       - action: utter_saludar
 
-  - rule: Despedirse
+  - rule: Analizar cualquier mensaje del usuario
     steps:
-      - intent: despedirse
-      - action: utter_despedirse
-
-  - rule: Agradecer
-    steps:
-      - intent: agradecimiento
-      - action: utter_agradecimiento
-
-  - rule: Respuesta por defecto cuando no entiende
-    steps:
-      - intent: nlu_fallback
-      - action: utter_default
+      - action: action_analizar_emocion_avanzado
+      - action: action_respuesta_con_ia

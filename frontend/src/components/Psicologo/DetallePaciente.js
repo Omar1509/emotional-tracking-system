@@ -1,12 +1,14 @@
+// frontend/src/components/Psicologo/DetallePaciente.js
+// REEMPLAZAR TODO
+
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, User, Phone, Mail, Calendar, AlertTriangle, MessageCircle, TrendingUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { apiCall } from '../../config/api';
+import API_URL from '../../config/api';
 
 const DetallePaciente = ({ pacienteId, setCurrentView }) => {
   const [paciente, setPaciente] = useState(null);
   const [registros, setRegistros] = useState([]);
-  const [chatHistory, setChatHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('registros');
 
@@ -18,23 +20,44 @@ const DetallePaciente = ({ pacienteId, setCurrentView }) => {
 
   const loadPacienteData = async () => {
     try {
-      // Cargar datos del paciente
-      const pacienteData = await apiCall(`/pacientes/${pacienteId}`);
-      setPaciente(pacienteData.paciente);
+      const token = localStorage.getItem('token');
+      
+      console.log('📤 Cargando datos del paciente:', pacienteId);
+
+      // Cargar datos del paciente desde la API de tus pacientes
+      const response = await fetch(`${API_URL}/psicologos/mis-pacientes`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Error cargando pacientes');
+      }
+
+      const data = await response.json();
+      const pacienteEncontrado = data.pacientes.find(p => p.id_paciente === pacienteId);
+      
+      if (pacienteEncontrado) {
+        setPaciente(pacienteEncontrado);
+        console.log('✅ Paciente encontrado:', pacienteEncontrado);
+      }
 
       // Cargar registros emocionales
-      const registrosData = await apiCall(`/pacientes/${pacienteId}/registros-emocionales`);
-      setRegistros(registrosData.registros || []);
+      const registrosResponse = await fetch(`${API_URL}/pacientes/${pacienteId}/registros-emocionales`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
-      // Cargar historial de chat
-      try {
-        const chatData = await apiCall(`/pacientes/${pacienteId}/chat-history`);
-        setChatHistory(chatData.mensajes || []);
-      } catch (error) {
-        console.log('No hay historial de chat disponible');
+      if (registrosResponse.ok) {
+        const registrosData = await registrosResponse.json();
+        setRegistros(registrosData.registros || []);
+        console.log('✅ Registros cargados:', registrosData);
       }
+
     } catch (error) {
-      console.error('Error cargando datos del paciente:', error);
+      console.error('❌ Error cargando datos del paciente:', error);
     } finally {
       setLoading(false);
     }
@@ -54,12 +77,12 @@ const DetallePaciente = ({ pacienteId, setCurrentView }) => {
   if (!paciente) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-600">No se pudo cargar la información del paciente</p>
+        <p className="text-gray-600 mb-4">No se pudo cargar la información del paciente</p>
         <button
-          onClick={() => setCurrentView('pacientes')}
-          className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          onClick={() => setCurrentView('dashboard')}
+          className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
         >
-          Volver a la lista
+          Volver al Dashboard
         </button>
       </div>
     );
@@ -78,7 +101,7 @@ const DetallePaciente = ({ pacienteId, setCurrentView }) => {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <button
-            onClick={() => setCurrentView('pacientes')}
+            onClick={() => setCurrentView('dashboard')}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-6 h-6 text-gray-600" />
@@ -94,49 +117,47 @@ const DetallePaciente = ({ pacienteId, setCurrentView }) => {
       <div className="bg-white rounded-xl shadow-sm p-6">
         <div className="flex items-start space-x-6">
           <div className="w-24 h-24 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-4xl flex-shrink-0">
-            {paciente.nombre?.charAt(0)}
+            {paciente.nombre_completo?.charAt(0) || 'P'}
           </div>
           <div className="flex-1">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                  {paciente.nombre} {paciente.apellido}
+                  {paciente.nombre_completo}
                 </h3>
                 <div className="flex items-center space-x-4 text-sm text-gray-600">
-                  <div className="flex items-center space-x-1">
-                    <Mail className="w-4 h-4" />
-                    <span>{paciente.email}</span>
-                  </div>
+                  {paciente.email && (
+                    <div className="flex items-center space-x-1">
+                      <Mail className="w-4 h-4" />
+                      <span>{paciente.email}</span>
+                    </div>
+                  )}
                   {paciente.telefono && (
                     <div className="flex items-center space-x-1">
                       <Phone className="w-4 h-4" />
                       <span>{paciente.telefono}</span>
                     </div>
                   )}
-                  {paciente.fecha_nacimiento && (
-                    <div className="flex items-center space-x-1">
-                      <Calendar className="w-4 h-4" />
-                      <span>{new Date(paciente.fecha_nacimiento).toLocaleDateString()}</span>
-                    </div>
-                  )}
                 </div>
               </div>
-              {paciente.activo && (
-                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
-                  Activo
-                </span>
-              )}
+              <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                Activo
+              </span>
             </div>
 
-            {paciente.direccion && (
-              <p className="text-gray-600 text-sm mb-2">
-                📍 {paciente.direccion}
-              </p>
-            )}
-
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
-              <Calendar className="w-4 h-4" />
-              <span>Registrado: {new Date(paciente.fecha_registro).toLocaleDateString()}</span>
+            <div className="grid grid-cols-3 gap-4 mt-4">
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-600">Registros esta semana</p>
+                <p className="text-2xl font-bold text-blue-600">{paciente.registros_ultima_semana || 0}</p>
+              </div>
+              <div className="bg-green-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-600">Promedio ánimo 7 días</p>
+                <p className="text-2xl font-bold text-green-600">{paciente.promedio_animo_7dias || 0}/10</p>
+              </div>
+              <div className="bg-orange-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-600">Alertas activas</p>
+                <p className="text-2xl font-bold text-orange-600">{paciente.alertas_activas || 0}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -165,16 +186,6 @@ const DetallePaciente = ({ pacienteId, setCurrentView }) => {
               }`}
             >
               💬 Historial de Chat
-            </button>
-            <button
-              onClick={() => setActiveTab('notas')}
-              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
-                activeTab === 'notas'
-                  ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              📝 Notas Clínicas
             </button>
           </div>
         </div>
@@ -260,48 +271,9 @@ const DetallePaciente = ({ pacienteId, setCurrentView }) => {
               <h4 className="text-lg font-semibold text-gray-800 mb-4">
                 Historial de Conversaciones con el Bot
               </h4>
-              {chatHistory.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
-                  <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-600">No hay conversaciones registradas</p>
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {chatHistory.slice(0, 50).map(mensaje => (
-                    <div
-                      key={mensaje.id_mensaje}
-                      className={`flex ${mensaje.es_bot ? 'justify-start' : 'justify-end'}`}
-                    >
-                      <div
-                        className={`max-w-[70%] p-3 rounded-lg ${
-                          mensaje.es_bot
-                            ? 'bg-gray-100 text-gray-800'
-                            : 'bg-blue-500 text-white'
-                        }`}
-                      >
-                        <p className="text-sm">{mensaje.mensaje}</p>
-                        <p className={`text-xs mt-1 ${mensaje.es_bot ? 'text-gray-500' : 'text-blue-100'}`}>
-                          {new Date(mensaje.fecha_hora).toLocaleString('es-ES')}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Tab: Notas */}
-          {activeTab === 'notas' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-lg font-semibold text-gray-800">Notas Clínicas</h4>
-                <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all">
-                  ➕ Nueva Nota
-                </button>
-              </div>
               <div className="text-center py-8 bg-gray-50 rounded-lg">
-                <p className="text-gray-600">Funcionalidad de notas clínicas próximamente</p>
+                <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600">Historial de chat próximamente disponible</p>
               </div>
             </div>
           )}
