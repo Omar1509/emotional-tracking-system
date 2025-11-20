@@ -672,3 +672,45 @@ def health_check():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+@app.get("/api/pacientes/{paciente_id}/registros-emocionales", tags=["Pacientes"])
+async def obtener_registros_paciente(
+    paciente_id: int,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obtener registros emocionales de un paciente específico"""
+    
+    # Verificar que el psicólogo tenga acceso a este paciente
+    if current_user.rol == models.UserRole.PSICOLOGO:
+        asignacion = db.query(models.PacientePsicologo).filter(
+            models.PacientePsicologo.id_paciente == paciente_id,
+            models.PacientePsicologo.id_psicologo == current_user.id_usuario,
+            models.PacientePsicologo.activo == True
+        ).first()
+        
+        if not asignacion:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes acceso a este paciente"
+            )
+    
+    # Obtener registros
+    registros = db.query(models.RegistroEmocional).filter(
+        models.RegistroEmocional.id_usuario == paciente_id
+    ).order_by(models.RegistroEmocional.fecha_hora.desc()).all()
+    
+    return {
+        "registros": [
+            {
+                "id_registro": r.id_registro,
+                "fecha_hora": r.fecha_hora,
+                "nivel_animo": r.nivel_animo,
+                "emocion_principal": r.emocion_principal,
+                "intensidad_emocion": r.intensidad_emocion,
+                "notas": r.notas,
+                "nivel_riesgo": r.nivel_riesgo.value if r.nivel_riesgo else None
+            }
+            for r in registros
+        ]
+    }

@@ -1,6 +1,9 @@
+// frontend/src/components/Psicologo/FormularioRegistroPaciente.js
+// REEMPLAZAR TODO EL ARCHIVO
+
 import React, { useState } from 'react';
 import { CheckCircle, ArrowLeft, AlertCircle } from 'lucide-react';
-import { apiCall } from '../../config/api';
+import API_URL from '../../config/api';
 
 const FormularioRegistroPaciente = ({ setCurrentView }) => {
   const [loading, setLoading] = useState(false);
@@ -11,7 +14,6 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
     segundo_nombre: '',
     primer_apellido: '',
     segundo_apellido: '',
-    cedula: '',
     telefono: '',
     direccion: '',
     fecha_nacimiento: '',
@@ -25,7 +27,6 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
     motivo_consulta: ''
   });
 
-  // Función para capitalizar (primera letra mayúscula, resto minúsculas)
   const capitalizeText = (text) => {
     if (!text) return '';
     return text
@@ -35,7 +36,6 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
       .join(' ');
   };
 
-  // Campos que deben ser capitalizados automáticamente
   const capitalizeFields = [
     'primer_nombre',
     'segundo_nombre', 
@@ -48,7 +48,6 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // Si el campo debe ser capitalizado
     if (capitalizeFields.includes(name)) {
       setFormData({ 
         ...formData, 
@@ -65,13 +64,36 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
     setLoading(true);
 
     try {
-      const response = await apiCall('/register/paciente', {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No estás autenticado');
+      }
+
+      console.log('📤 Enviando datos:', formData);
+
+      const response = await fetch(`${API_URL}/register/paciente`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(formData)
       });
+
+      console.log('📥 Respuesta status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Error al registrar paciente');
+      }
+
+      const data = await response.json();
+      console.log('✅ Paciente registrado:', data);
       
-      setSuccess(response);
+      setSuccess(data);
     } catch (err) {
+      console.error('❌ Error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -125,7 +147,10 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
 
           <div className="flex space-x-4">
             <button
-              onClick={() => setCurrentView('dashboard')}
+              onClick={() => {
+                setCurrentView('dashboard');
+                window.location.reload(); // Recargar para actualizar lista
+              }}
               className="flex-1 bg-gradient-to-r from-emerald-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:from-emerald-700 hover:to-blue-700 transition-all shadow-lg"
             >
               Volver al Dashboard
@@ -135,7 +160,7 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
                 setSuccess(null);
                 setFormData({
                   primer_nombre: '', segundo_nombre: '', primer_apellido: '', segundo_apellido: '',
-                  cedula: '', telefono: '', direccion: '', fecha_nacimiento: '', genero: '',
+                  telefono: '', direccion: '', fecha_nacimiento: '', genero: '',
                   contacto_emergencia_nombre: '', contacto_emergencia_telefono: '', contacto_emergencia_relacion: '',
                   alergias: '', medicamentos_actuales: '', condiciones_medicas: '', motivo_consulta: ''
                 });
@@ -222,24 +247,6 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
                 />
                 <p className="text-xs text-gray-500 mt-1">✨ Se capitalizará automáticamente</p>
               </div>
-            </div>
-            
-            {/* Cédula de Identidad */}
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                🪪 Cédula de Identidad *
-              </label>
-              <input 
-                name="cedula" 
-                value={formData.cedula} 
-                onChange={handleChange}
-                placeholder="0000000000 (10 dígitos)" 
-                required
-                pattern="[0-9]{10}"
-                maxLength="10"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" 
-              />
-              <p className="text-xs text-gray-500 mt-1">📌 Debe tener exactamente 10 dígitos</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">

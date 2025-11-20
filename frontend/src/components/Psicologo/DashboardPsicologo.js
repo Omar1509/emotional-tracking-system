@@ -1,11 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Users, Plus, Calendar, TrendingUp, AlertTriangle, Clock } from 'lucide-react';
-import { apiCall } from '../../config/api';
+// frontend/src/components/Psicologo/DashboardPsicologo.js
+// REEMPLAZAR TODO EL ARCHIVO
 
-const DashboardPsicologo = ({ setCurrentView }) => {
+import React, { useState, useEffect } from 'react';
+import { Users, Plus, Calendar, TrendingUp, AlertTriangle, Clock, ChevronRight } from 'lucide-react';
+import API_URL from '../../config/api';
+
+const DashboardPsicologo = ({ setCurrentView, setSelectedPacienteId }) => {
   const [pacientes, setPacientes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const nombrePsicologo = localStorage.getItem('nombre_completo');
+  
+  // Obtener información del usuario desde localStorage
+  const userStr = localStorage.getItem('user');
+  const user = userStr ? JSON.parse(userStr) : {};
+  
+  // Construir nombre completo del psicólogo
+  const nombrePsicologo = user.nombre && user.apellido 
+    ? `${user.nombre} ${user.apellido}`
+    : localStorage.getItem('nombre_completo') || 'Psicólogo';
 
   useEffect(() => {
     loadPacientes();
@@ -13,13 +24,34 @@ const DashboardPsicologo = ({ setCurrentView }) => {
 
   const loadPacientes = async () => {
     try {
-      const response = await apiCall('/psicologos/mis-pacientes');
-      setPacientes(response.pacientes || []);
+      const token = localStorage.getItem('token');
+      
+      console.log('📤 Cargando pacientes...');
+      
+      const response = await fetch(`${API_URL}/psicologos/mis-pacientes`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Error cargando pacientes');
+      }
+
+      const data = await response.json();
+      console.log('📊 Pacientes cargados:', data);
+      setPacientes(data.pacientes || []);
     } catch (error) {
-      console.error('Error cargando pacientes:', error);
+      console.error('❌ Error cargando pacientes:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const verDetallePaciente = (pacienteId) => {
+    console.log('👁️ Ver detalle del paciente:', pacienteId);
+    setSelectedPacienteId(pacienteId);
+    setCurrentView('detalle-paciente');
   };
 
   const pacientesConAlertas = pacientes.filter(p => p.alertas_activas > 0);
@@ -81,20 +113,7 @@ const DashboardPsicologo = ({ setCurrentView }) => {
       {/* Acciones Rápidas */}
       <div className="bg-white rounded-xl shadow-sm p-6">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Acciones Rápidas</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button
-            onClick={() => setCurrentView('pacientes')}
-            className="flex items-center space-x-3 p-4 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-lg transition-all border border-blue-200 group"
-          >
-            <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Users className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-left">
-              <p className="font-semibold text-gray-800">Ver Pacientes</p>
-              <p className="text-sm text-gray-600">Lista completa</p>
-            </div>
-          </button>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             onClick={() => setCurrentView('registrar-paciente')}
             className="flex items-center space-x-3 p-4 bg-gradient-to-r from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200 rounded-lg transition-all border border-emerald-200 group"
@@ -104,7 +123,7 @@ const DashboardPsicologo = ({ setCurrentView }) => {
             </div>
             <div className="text-left">
               <p className="font-semibold text-gray-800">Nuevo Paciente</p>
-              <p className="text-sm text-gray-600">Registrar</p>
+              <p className="text-sm text-gray-600">Registrar un nuevo paciente</p>
             </div>
           </button>
 
@@ -117,7 +136,7 @@ const DashboardPsicologo = ({ setCurrentView }) => {
             </div>
             <div className="text-left">
               <p className="font-semibold text-gray-800">Agenda</p>
-              <p className="text-sm text-gray-600">Citas del día</p>
+              <p className="text-sm text-gray-600">Ver citas programadas</p>
             </div>
           </button>
         </div>
@@ -143,12 +162,11 @@ const DashboardPsicologo = ({ setCurrentView }) => {
                         </p>
                       </div>
                       <button
-                        onClick={() => {
-                          setCurrentView('detalle-paciente');
-                        }}
-                        className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all text-sm"
+                        onClick={() => verDetallePaciente(paciente.id_paciente)}
+                        className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all text-sm flex items-center space-x-2"
                       >
-                        Ver Detalles
+                        <span>Ver Detalles</span>
+                        <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -159,9 +177,15 @@ const DashboardPsicologo = ({ setCurrentView }) => {
         </div>
       )}
 
-      {/* Pacientes Recientes */}
+      {/* Lista de Pacientes */}
       <div className="bg-white rounded-xl shadow-sm p-6">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">Actividad Reciente</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-gray-800">Mis Pacientes</h3>
+          {pacientes.length > 0 && (
+            <span className="text-sm text-gray-500">{pacientes.length} paciente(s)</span>
+          )}
+        </div>
+        
         {loading ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
@@ -169,43 +193,45 @@ const DashboardPsicologo = ({ setCurrentView }) => {
         ) : pacientes.length === 0 ? (
           <div className="text-center py-8">
             <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-600">No tienes pacientes asignados aún</p>
+            <p className="text-gray-600 mb-4">No tienes pacientes asignados aún</p>
             <button
               onClick={() => setCurrentView('registrar-paciente')}
-              className="mt-4 px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all"
+              className="px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all"
             >
               Registrar Primer Paciente
             </button>
           </div>
         ) : (
           <div className="space-y-3">
-            {pacientes.slice(0, 5).map(paciente => (
-              <div key={paciente.id_paciente} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+            {pacientes.map(paciente => (
+              <button
+                key={paciente.id_paciente}
+                onClick={() => verDetallePaciente(paciente.id_paciente)}
+                className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-blue-50 hover:border-blue-300 border-2 border-transparent transition-all cursor-pointer group"
+              >
                 <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold group-hover:scale-110 transition-transform">
                     {paciente.nombre_completo.charAt(0)}
                   </div>
-                  <div>
-                    <p className="font-semibold text-gray-800">{paciente.nombre_completo}</p>
+                  <div className="text-left">
+                    <p className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">
+                      {paciente.nombre_completo}
+                    </p>
                     <p className="text-sm text-gray-600">
                       {paciente.registros_ultima_semana} registros esta semana
+                      {paciente.email && ` • ${paciente.email}`}
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-blue-600">{paciente.promedio_animo_7dias}/10</p>
-                  <p className="text-xs text-gray-500">Promedio 7 días</p>
+                <div className="flex items-center space-x-4">
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-blue-600">{paciente.promedio_animo_7dias}/10</p>
+                    <p className="text-xs text-gray-500">Promedio 7 días</p>
+                  </div>
+                  <ChevronRight className="w-6 h-6 text-gray-400 group-hover:text-blue-500 transition-colors" />
                 </div>
-              </div>
-            ))}
-            {pacientes.length > 5 && (
-              <button
-                onClick={() => setCurrentView('pacientes')}
-                className="w-full py-3 text-blue-600 hover:bg-blue-50 rounded-lg transition-all font-medium"
-              >
-                Ver todos los pacientes ({pacientes.length})
               </button>
-            )}
+            ))}
           </div>
         )}
       </div>

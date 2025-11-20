@@ -1,13 +1,8 @@
 # rasa_chatbot/endpoints.yml
+# REEMPLAZAR TODO EL ARCHIVO
 
-# Action server endpoint
 action_endpoint:
   url: "http://localhost:5055/webhook"
 
-# Tracker store (opcional - para producción)
-# tracker_store:
-#   type: mongod
-#   url: mongodb://localhost:27017
-#   db: rasa_tracker
-#   username: rasa
-#   password: password
+tracker_store:
+  type: InMemoryTrackerStore

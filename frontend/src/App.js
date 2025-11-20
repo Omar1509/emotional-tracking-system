@@ -1,3 +1,6 @@
+// frontend/src/App.js
+// REEMPLAZAR TODO EL ARCHIVO
+
 import React, { useState, useEffect } from 'react';
 import './index.css';
 
@@ -29,10 +32,12 @@ const App = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const role = localStorage.getItem('role');
-    if (token && role) {
+    const user = localStorage.getItem('user');
+    
+    if (token && user) {
+      const userData = JSON.parse(user);
       setIsAuthenticated(true);
-      setUserRole(role);
+      setUserRole(userData.rol);
     }
   }, []);
 
@@ -119,7 +124,13 @@ const App = () => {
         );
       }
       
-      return <DashboardPsicologo setCurrentView={setCurrentView} />;
+      // ✅ CORREGIDO: Pasar setSelectedPatientId
+      return (
+        <DashboardPsicologo 
+          setCurrentView={setCurrentView}
+          setSelectedPacienteId={setSelectedPatientId}
+        />
+      );
     }
     
     // ============= PACIENTE =============

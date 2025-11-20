@@ -457,3 +457,103 @@ def verificar_estado_chat():
             "error": str(e),
             "message": f"No se pudo conectar con Rasa en {RASA_URL}"
         }
+
+@router.get("/chat/analisis-paciente/{id_paciente}")
+def obtener_analisis_chat_paciente(
+    id_paciente: int,
+    dias: int = 30,
+    current_user: models.Usuario = Depends(get_current_user)
+):
+    """
+    Obtiene análisis del chat del paciente para el psicólogo
+    """
+    # Verificar que sea psicólogo
+    if current_user.rol != models.UserRole.PSICOLOGO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo psicólogos pueden acceder"
+        )
+    
+    # Verificar asignación
+    asignacion = db.query(models.PacientePsicologo).filter(
+        models.PacientePsicologo.id_paciente == id_paciente,
+        models.PacientePsicologo.id_psicologo == current_user.id_usuario,
+        models.PacientePsicologo.activo == True
+    ).first()
+    
+    if not asignacion:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Paciente no asignado"
+        )
+    
+    try:
+        mongo_db = get_database()
+        fecha_inicio = datetime.utcnow() - timedelta(days=dias)
+        
+        # Obtener mensajes del chat
+        mensajes = list(mongo_db.chat_messages.find({
+            "user_id": str(id_paciente),
+            "is_bot": False,
+            "timestamp": {"$gte": fecha_inicio},
+            "emotional_analysis": {"$exists": True}
+        }).sort("timestamp", 1))
+        
+        # Agrupar por día
+        emociones_por_dia = {}
+        
+        for msg in mensajes:
+            fecha = msg['timestamp'].strftime('%Y-%m-%d')
+            
+            if fecha not in emociones_por_dia:
+                emociones_por_dia[fecha] = {
+                    'fecha': fecha,
+                    'alegria': 0,
+                    'tristeza': 0,
+                    'ansiedad': 0,
+                    'enojo': 0,
+                    'miedo': 0,
+                    'neutral': 0,
+                    'total_mensajes': 0,
+                    'nivel_riesgo_total': 0
+                }
+            
+            analysis = msg.get('emotional_analysis', {})
+            emotions = analysis.get('emotions', {})
+            
+            # Emoción dominante
+            emocion = emotions.get('dominant_emotion', 'neutral').lower()
+            scores = emotions.get('scores', {})
+            
+            # Normalizar a escala 1-10
+            intensidad = scores.get(emocion, 0) * 10
+            
+            if emocion in emociones_por_dia[fecha]:
+                emociones_por_dia[fecha][emocion] += intensidad
+                emociones_por_dia[fecha]['total_mensajes'] += 1
+            
+            # Nivel de riesgo
+            risk = analysis.get('risk_assessment', {}).get('score', 0)
+            emociones_por_dia[fecha]['nivel_riesgo_total'] += risk
+        
+        # Promediar
+        for fecha, datos in emociones_por_dia.items():
+            count = datos['total_mensajes']
+            if count > 0:
+                for emocion in ['alegria', 'tristeza', 'ansiedad', 'enojo', 'miedo', 'neutral']:
+                    datos[emocion] = round(datos[emocion] / count, 2)
+                datos['nivel_riesgo_promedio'] = round(datos['nivel_riesgo_total'] / count, 2)
+        
+        return {
+            "emociones_por_dia": list(emociones_por_dia.values()),
+            "total_mensajes": len(mensajes),
+            "promedio_riesgo": sum(d['nivel_riesgo_promedio'] for d in emociones_por_dia.values()) / len(emociones_por_dia) if emociones_por_dia else 0
+        }
+    
+    except Exception as e:
+        print(f"❌ Error analizando chat: {e}")
+        return {
+            "emociones_por_dia": [],
+            "total_mensajes": 0,
+            "promedio_riesgo": 0
+        }

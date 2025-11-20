@@ -10,14 +10,13 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState('');
   const messagesEndRef = useRef(null);
-  const hasInitialized = useRef(false); // ✅ NUEVO: Evita doble inicialización
+  const hasInitialized = useRef(false);
 
   const RASA_URL = 'http://localhost:5006/webhooks/rest/webhook';
   const userData = JSON.parse(localStorage.getItem('user') || '{}');
-  const userId = `paciente_${userData.user_id || 'unknown'}`;
+  const userId = userData.id_usuario || userData.user_id || '1';
 
   useEffect(() => {
-    // ✅ SOLO INICIALIZAR UNA VEZ
     if (!hasInitialized.current) {
       hasInitialized.current = true;
       checkRasaConnection();
@@ -54,7 +53,7 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
 
   const addMessage = (role, content, emotion = null) => {
     const newMessage = {
-      id: `${Date.now()}-${Math.random()}`, // ✅ ID único para evitar duplicados
+      id: `${Date.now()}-${Math.random()}`,
       role,
       content,
       emotion,
@@ -62,11 +61,10 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
     };
     
     setMessages(prev => {
-      // ✅ EVITAR DUPLICADOS: Verificar si el mensaje ya existe
       const isDuplicate = prev.some(msg => 
         msg.content === content && 
         msg.role === role &&
-        Date.now() - new Date(msg.timestamp).getTime() < 1000 // Dentro del último segundo
+        Date.now() - new Date(msg.timestamp).getTime() < 1000
       );
       
       if (isDuplicate) {
@@ -84,19 +82,17 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
     const userMessageText = inputMessage.trim();
     setInputMessage('');
     
-    // Agregar mensaje del usuario
     addMessage('user', userMessageText);
     setLoading(true);
 
     try {
-      // Enviar mensaje a Rasa
       const response = await fetch(RASA_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          sender: userId,
+          sender: `paciente_${userId}`,
           message: userMessageText
         })
       });
@@ -109,26 +105,14 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
       
       console.log('📥 Respuesta de Rasa:', data);
 
-      // ✅ PROCESAR RESPUESTAS SIN DUPLICAR
       if (data && data.length > 0) {
-        // Agrupar todas las respuestas en un solo mensaje si vienen juntas
         const respuestasTexto = data
           .filter(r => r.text)
           .map(r => r.text);
         
         if (respuestasTexto.length > 0) {
-          // Opción 1: Combinar todas en un mensaje
           const respuestaCombinada = respuestasTexto.join('\n\n');
           addMessage('bot', respuestaCombinada);
-          
-          // Opción 2: Mostrar una por una con delay (comentada por defecto)
-          /*
-          respuestasTexto.forEach((texto, index) => {
-            setTimeout(() => {
-              addMessage('bot', texto);
-            }, index * 800);
-          });
-          */
         }
       } else {
         addMessage('bot', 'Disculpa, no pude procesar tu mensaje. ¿Puedes intentar reformularlo?');
@@ -232,7 +216,6 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
                 message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''
               }`}
             >
-              {/* Avatar */}
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                   message.role === 'user'
@@ -247,7 +230,6 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
                 )}
               </div>
 
-              {/* Message Bubble */}
               <div
                 className={`rounded-2xl px-5 py-3 shadow-md ${
                   message.role === 'user'
@@ -280,7 +262,6 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
           </div>
         ))}
 
-        {/* Typing Indicator */}
         {loading && (
           <div className="flex justify-start">
             <div className="flex items-start space-x-2 max-w-[80%]">
