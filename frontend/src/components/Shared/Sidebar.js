@@ -11,15 +11,14 @@ const Sidebar = ({ userRole, onLogout, currentView, setCurrentView }) => {
     ],
     psicologo: [
       { id: 'dashboard', label: 'Dashboard', icon: Home },
-      { id: 'pacientes', label: 'Mis Pacientes', icon: Users },
+      { id: 'pacientes', label: 'Mis Pacientes', icon: Users },  // ✅ MANTENER
       { id: 'registrar-paciente', label: 'Registrar Paciente', icon: Plus },
-      { id: 'citas', label: 'Citas', icon: Calendar }
+      { id: 'citas', label: 'Gestión de Citas', icon: Calendar },  // ✅ MANTENER
     ],
     paciente: [
       { id: 'dashboard', label: 'Inicio', icon: Home },
       { id: 'registrar', label: 'Registrar Estado', icon: Plus },
       { id: 'chat', label: 'Chat de Apoyo', icon: MessageCircle },
-      { id: 'estadisticas', label: 'Mis Estadísticas', icon: BarChart3 }
     ]
   };
 

@@ -1,5 +1,3 @@
-# backend/main.py
-
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -19,7 +17,6 @@ import schemas
 from nlp_service import nlp_service
 from chatbot_service import chatbot_service
 
-# Crear tablas si no existen
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -713,4 +710,806 @@ async def obtener_registros_paciente(
             }
             for r in registros
         ]
+    }
+# ==================== ENDPOINT REGISTRAR PACIENTE ====================
+
+@app.post("/api/psicologos/registrar-paciente", tags=["Psicólogos"])
+def registrar_paciente_psicologo(
+    paciente_data: schemas.PacienteRegistro,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Registra un nuevo paciente y envía credenciales por correo"""
+    
+    if current_user.rol != models.UserRole.PSICOLOGO:
+        raise HTTPException(status_code=403, detail="Solo psicólogos pueden registrar pacientes")
+    
+    # Verificar email
+    if db.query(models.Usuario).filter(models.Usuario.email == paciente_data.correo).first():
+        raise HTTPException(status_code=400, detail="El correo ya está registrado")
+    
+    # Verificar cédula
+    if paciente_data.cedula:
+        if db.query(models.Usuario).filter(models.Usuario.cedula == paciente_data.cedula).first():
+            raise HTTPException(status_code=400, detail="La cédula ya está registrada")
+    
+    # Importar funciones
+    from email_service import send_credentials, generate_temp_password
+    import bcrypt
+    
+    # Generar contraseña temporal
+    password_temporal = generate_temp_password(12)
+    hashed_password = bcrypt.hashpw(password_temporal.encode('utf-8'), bcrypt.gensalt())
+    
+    # Construir nombres
+    nombre = paciente_data.primer_nombre
+    if paciente_data.segundo_nombre:
+        nombre += f" {paciente_data.segundo_nombre}"
+    
+    apellido = paciente_data.primer_apellido
+    if paciente_data.segundo_apellido:
+        apellido += f" {paciente_data.segundo_apellido}"
+    
+    # Crear paciente
+    nuevo_paciente = models.Usuario(
+        email=paciente_data.correo,
+        password_hash=hashed_password.decode('utf-8'),
+        nombre=nombre,
+        apellido=apellido,
+        cedula=paciente_data.cedula,
+        fecha_nacimiento=paciente_data.fecha_nacimiento,
+        telefono=paciente_data.telefono,
+        direccion=paciente_data.direccion,
+        rol=models.UserRole.PACIENTE,
+        debe_cambiar_password=True
+    )
+    
+    db.add(nuevo_paciente)
+    db.commit()
+    db.refresh(nuevo_paciente)
+    
+    # Asignar al psicólogo
+    asignacion = models.PacientePsicologo(
+        id_paciente=nuevo_paciente.id_usuario,
+        id_psicologo=current_user.id_usuario,
+        activo=True
+    )
+    db.add(asignacion)
+    db.commit()
+    
+    # Enviar correo
+    try:
+        send_credentials(
+            to_email=nuevo_paciente.email,
+            nombre=f"{nombre} {apellido}",
+            email_login=nuevo_paciente.email,
+            password=password_temporal,
+            psicologo=f"{current_user.nombre} {current_user.apellido}"
+        )
+        print(f"✅ Correo enviado a {nuevo_paciente.email}")
+    except Exception as e:
+        print(f"⚠️ Error enviando correo: {e}")
+    
+    return {
+        "mensaje": "Paciente registrado exitosamente. Se han enviado las credenciales por correo.",
+        "paciente": {
+            "id": nuevo_paciente.id_usuario,
+            "nombre": f"{nombre} {apellido}",
+            "cedula": nuevo_paciente.cedula,
+            "email": nuevo_paciente.email,
+            "telefono": nuevo_paciente.telefono
+        }
+    }
+# ==================== COPIAR Y PEGAR AL FINAL DE main.py ====================
+
+# HISTORIAL DE CHAT
+@app.get("/api/psicologos/paciente/{paciente_id}/historial-chat", tags=["Psicólogos"])
+async def obtener_historial_chat(
+    paciente_id: int,
+    limit: int = 100,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obtiene el historial completo de chat de un paciente"""
+    # Verificar que el psicólogo tenga acceso
+    if current_user.rol == models.UserRole.PSICOLOGO:
+        asignacion = db.query(models.PacientePsicologo).filter(
+            models.PacientePsicologo.id_paciente == paciente_id,
+            models.PacientePsicologo.id_psicologo == current_user.id_usuario,
+            models.PacientePsicologo.activo == True
+        ).first()
+        
+        if not asignacion:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes acceso a este paciente"
+            )
+    
+    # Obtener mensajes del chat
+    mensajes = db.query(models.MensajeChat).filter(
+        models.MensajeChat.id_usuario == paciente_id
+    ).order_by(models.MensajeChat.fecha_hora.desc()).limit(limit).all()
+    
+    # Intentar obtener desde MongoDB si existe
+    try:
+        from mongodb_config import mongodb_service
+        mensajes_mongo = mongodb_service.get_chat_history(paciente_id, limit=limit)
+        
+        # Combinar mensajes
+        mensajes_combinados = []
+        
+        for m in mensajes:
+            mensajes_combinados.append({
+                "id": m.id_mensaje,
+                "mensaje": m.mensaje,
+                "es_bot": m.es_bot,
+                "fecha_hora": m.fecha_hora.isoformat(),
+                "emocion_detectada": m.emocion_detectada,
+                "sentimiento": m.sentimiento_mensaje,
+                "intencion": m.intencion
+            })
+        
+        for m in mensajes_mongo:
+            mensajes_combinados.append({
+                "id": str(m.get('_id', '')),
+                "mensaje": m.get('message', ''),
+                "es_bot": m.get('is_bot', False),
+                "fecha_hora": m.get('timestamp', datetime.utcnow()).isoformat(),
+                "emocion_detectada": m.get('emotional_analysis', {}).get('emotions', {}).get('dominant_emotion'),
+                "sentimiento": m.get('emotional_analysis', {}).get('sentiment', {}).get('sentiment_score'),
+                "intencion": m.get('intent')
+            })
+        
+        mensajes_combinados.sort(key=lambda x: x['fecha_hora'], reverse=True)
+        mensajes_combinados = mensajes_combinados[:limit]
+        
+    except Exception as e:
+        print(f"⚠️ Error obteniendo mensajes de MongoDB: {e}")
+        mensajes_combinados = [
+            {
+                "id": m.id_mensaje,
+                "mensaje": m.mensaje,
+                "es_bot": m.es_bot,
+                "fecha_hora": m.fecha_hora.isoformat(),
+                "emocion_detectada": m.emocion_detectada,
+                "sentimiento": m.sentimiento_mensaje,
+                "intencion": m.intencion
+            }
+            for m in mensajes
+        ]
+    
+    return {
+        "total_mensajes": len(mensajes_combinados),
+        "mensajes": mensajes_combinados
+    }
+
+
+# EDITAR PACIENTE
+@app.put("/api/psicologos/paciente/{paciente_id}", tags=["Psicólogos"])
+async def editar_paciente(
+    paciente_id: int,
+    paciente_data: schemas.PacienteEditar,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Edita la información de un paciente"""
+    if current_user.rol != models.UserRole.PSICOLOGO:
+        raise HTTPException(status_code=403, detail="Solo psicólogos pueden editar pacientes")
+    
+    # Verificar acceso
+    asignacion = db.query(models.PacientePsicologo).filter(
+        models.PacientePsicologo.id_paciente == paciente_id,
+        models.PacientePsicologo.id_psicologo == current_user.id_usuario,
+        models.PacientePsicologo.activo == True
+    ).first()
+    
+    if not asignacion:
+        raise HTTPException(status_code=403, detail="No tienes acceso a este paciente")
+    
+    # Buscar paciente
+    paciente = db.query(models.Usuario).filter(
+        models.Usuario.id_usuario == paciente_id,
+        models.Usuario.rol == models.UserRole.PACIENTE
+    ).first()
+    
+    if not paciente:
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    
+    # Actualizar campos
+    if paciente_data.nombre is not None:
+        paciente.nombre = paciente_data.nombre
+    if paciente_data.apellido is not None:
+        paciente.apellido = paciente_data.apellido
+    if paciente_data.cedula is not None:
+        # Verificar que no esté en uso
+        existente = db.query(models.Usuario).filter(
+            models.Usuario.cedula == paciente_data.cedula,
+            models.Usuario.id_usuario != paciente_id
+        ).first()
+        if existente:
+            raise HTTPException(status_code=400, detail="La cédula ya está registrada")
+        paciente.cedula = paciente_data.cedula
+    if paciente_data.email is not None:
+        existente = db.query(models.Usuario).filter(
+            models.Usuario.email == paciente_data.email,
+            models.Usuario.id_usuario != paciente_id
+        ).first()
+        if existente:
+            raise HTTPException(status_code=400, detail="El email ya está registrado")
+        paciente.email = paciente_data.email
+    if paciente_data.telefono is not None:
+        paciente.telefono = paciente_data.telefono
+    if paciente_data.direccion is not None:
+        paciente.direccion = paciente_data.direccion
+    if paciente_data.fecha_nacimiento is not None:
+        paciente.fecha_nacimiento = paciente_data.fecha_nacimiento
+    if paciente_data.activo is not None:
+        paciente.activo = paciente_data.activo
+    
+    db.commit()
+    db.refresh(paciente)
+    
+    return {
+        "mensaje": "Paciente actualizado exitosamente",
+        "paciente": {
+            "id": paciente.id_usuario,
+            "nombre": paciente.nombre,
+            "apellido": paciente.apellido,
+            "cedula": paciente.cedula,
+            "email": paciente.email,
+            "telefono": paciente.telefono
+        }
+    }
+
+
+# ELIMINAR PACIENTE
+@app.delete("/api/psicologos/paciente/{paciente_id}", tags=["Psicólogos"])
+async def eliminar_paciente(
+    paciente_id: int,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Elimina (desactiva) un paciente del sistema"""
+    if current_user.rol != models.UserRole.PSICOLOGO:
+        raise HTTPException(status_code=403, detail="Solo psicólogos pueden eliminar pacientes")
+    
+    asignacion = db.query(models.PacientePsicologo).filter(
+        models.PacientePsicologo.id_paciente == paciente_id,
+        models.PacientePsicologo.id_psicologo == current_user.id_usuario,
+        models.PacientePsicologo.activo == True
+    ).first()
+    
+    if not asignacion:
+        raise HTTPException(status_code=403, detail="No tienes acceso a este paciente")
+    
+    paciente = db.query(models.Usuario).filter(
+        models.Usuario.id_usuario == paciente_id,
+        models.Usuario.rol == models.UserRole.PACIENTE
+    ).first()
+    
+    if not paciente:
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    
+    # Soft delete
+    paciente.activo = False
+    asignacion.activo = False
+    db.commit()
+    
+    return {
+        "mensaje": f"Paciente {paciente.nombre} {paciente.apellido} desactivado exitosamente",
+        "paciente_id": paciente_id
+    }
+
+
+# OBTENER CITAS
+@app.get("/api/psicologos/mis-citas", tags=["Psicólogos"])
+async def obtener_mis_citas(
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obtiene todas las citas del psicólogo"""
+    if current_user.rol != models.UserRole.PSICOLOGO:
+        raise HTTPException(status_code=403, detail="Solo psicólogos pueden acceder")
+    
+    citas = db.query(models.Cita).filter(
+        models.Cita.id_psicologo == current_user.id_usuario
+    ).order_by(models.Cita.fecha.desc(), models.Cita.hora_inicio.desc()).all()
+    
+    citas_detalladas = []
+    for cita in citas:
+        paciente = db.query(models.Usuario).filter(
+            models.Usuario.id_usuario == cita.id_paciente
+        ).first()
+        
+        citas_detalladas.append({
+            "id_cita": cita.id_cita,
+            "fecha": cita.fecha.isoformat() if cita.fecha else None,
+            "hora_inicio": cita.hora_inicio.isoformat() if cita.hora_inicio else None,
+            "hora_fin": cita.hora_fin.isoformat() if cita.hora_fin else None,
+            "duracion_minutos": cita.duracion_minutos,
+            "estado": cita.estado.value,
+            "modalidad": cita.modalidad,
+            "paciente": {
+                "id": cita.id_paciente,
+                "nombre": f"{paciente.nombre} {paciente.apellido}" if paciente else "Desconocido",
+                "email": paciente.email if paciente else None
+            },
+            "notas_previas": cita.notas_previas,
+            "notas_sesion": cita.notas_sesion,
+            "objetivos": cita.objetivos
+        })
+    
+    return {
+        "total_citas": len(citas_detalladas),
+        "citas": citas_detalladas
+    }
+# CREAR NUEVA CITA
+@app.post("/api/psicologos/citas", tags=["Psicólogos"])
+async def crear_cita(
+    cita_data: schemas.CitaCreate,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Crea una nueva cita médica
+    """
+    if current_user.rol != models.UserRole.PSICOLOGO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo psicólogos pueden crear citas"
+        )
+    
+    # Verificar que el psicólogo tenga acceso al paciente
+    asignacion = db.query(models.PacientePsicologo).filter(
+        models.PacientePsicologo.id_paciente == cita_data.id_paciente,
+        models.PacientePsicologo.id_psicologo == current_user.id_usuario,
+        models.PacientePsicologo.activo == True
+    ).first()
+    
+    if not asignacion:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes acceso a este paciente"
+        )
+    
+    # Crear la cita
+    nueva_cita = models.Cita(
+        id_paciente=cita_data.id_paciente,
+        id_psicologo=current_user.id_usuario,
+        fecha=cita_data.fecha,
+        hora_inicio=cita_data.hora_inicio,
+        hora_fin=cita_data.hora_fin,
+        duracion_minutos=cita_data.duracion_minutos,
+        modalidad=cita_data.modalidad,
+        url_videollamada=cita_data.url_videollamada,
+        notas_previas=cita_data.notas_previas,
+        objetivos=cita_data.objetivos,
+        estado=models.AppointmentStatus.PROGRAMADA
+    )
+    
+    db.add(nueva_cita)
+    db.commit()
+    db.refresh(nueva_cita)
+    
+    # Obtener información del paciente
+    paciente = db.query(models.Usuario).filter(
+        models.Usuario.id_usuario == cita_data.id_paciente
+    ).first()
+    
+    return {
+        "mensaje": "Cita creada exitosamente",
+        "cita": {
+            "id_cita": nueva_cita.id_cita,
+            "fecha": nueva_cita.fecha.isoformat(),
+            "hora_inicio": nueva_cita.hora_inicio.isoformat(),
+            "paciente": {
+                "id": paciente.id_usuario,
+                "nombre": f"{paciente.nombre} {paciente.apellido}"
+            }
+        }
+    }
+
+
+# ACTUALIZAR CITA
+@app.put("/api/psicologos/citas/{cita_id}", tags=["Psicólogos"])
+async def actualizar_cita(
+    cita_id: int,
+    cita_data: schemas.CitaUpdate,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Actualiza una cita existente
+    """
+    if current_user.rol != models.UserRole.PSICOLOGO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo psicólogos pueden actualizar citas"
+        )
+    
+    # Buscar la cita
+    cita = db.query(models.Cita).filter(
+        models.Cita.id_cita == cita_id,
+        models.Cita.id_psicologo == current_user.id_usuario
+    ).first()
+    
+    if not cita:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cita no encontrada"
+        )
+    
+    # Actualizar campos
+    if cita_data.fecha is not None:
+        cita.fecha = cita_data.fecha
+    if cita_data.hora_inicio is not None:
+        cita.hora_inicio = cita_data.hora_inicio
+    if cita_data.hora_fin is not None:
+        cita.hora_fin = cita_data.hora_fin
+    if cita_data.estado is not None:
+        cita.estado = cita_data.estado
+    if cita_data.notas_sesion is not None:
+        cita.notas_sesion = cita_data.notas_sesion
+    if cita_data.tareas_asignadas is not None:
+        cita.tareas_asignadas = cita_data.tareas_asignadas
+    if cita_data.modalidad is not None:
+        cita.modalidad = cita_data.modalidad
+    if cita_data.url_videollamada is not None:
+        cita.url_videollamada = cita_data.url_videollamada
+    
+    cita.fecha_modificacion = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(cita)
+    
+    return {
+        "mensaje": "Cita actualizada exitosamente",
+        "cita": {
+            "id_cita": cita.id_cita,
+            "fecha": cita.fecha.isoformat() if cita.fecha else None,
+            "hora_inicio": cita.hora_inicio.isoformat() if cita.hora_inicio else None,
+            "estado": cita.estado.value
+        }
+    }
+
+
+# CANCELAR/ELIMINAR CITA
+@app.delete("/api/psicologos/citas/{cita_id}", tags=["Psicólogos"])
+async def cancelar_cita(
+    cita_id: int,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Cancela una cita (cambia estado a cancelada)
+    """
+    if current_user.rol != models.UserRole.PSICOLOGO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo psicólogos pueden cancelar citas"
+        )
+    
+    # Buscar la cita
+    cita = db.query(models.Cita).filter(
+        models.Cita.id_cita == cita_id,
+        models.Cita.id_psicologo == current_user.id_usuario
+    ).first()
+    
+    if not cita:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cita no encontrada"
+        )
+    
+    # Cambiar estado a cancelada
+    cita.estado = models.AppointmentStatus.CANCELADA
+    cita.fecha_modificacion = datetime.utcnow()
+    
+    db.commit()
+    
+    return {
+        "mensaje": "Cita cancelada exitosamente",
+        "cita_id": cita_id
+    }
+@app.get("/api/psicologos/paciente/{paciente_id}/historial-chat", tags=["Psicólogos"])
+async def obtener_historial_chat(
+    paciente_id: int,
+    limit: int = 100,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Obtiene el historial completo de chat de un paciente
+    """
+    # Verificar que el psicólogo tenga acceso
+    if current_user.rol == models.UserRole.PSICOLOGO:
+        asignacion = db.query(models.PacientePsicologo).filter(
+            models.PacientePsicologo.id_paciente == paciente_id,
+            models.PacientePsicologo.id_psicologo == current_user.id_usuario,
+            models.PacientePsicologo.activo == True
+        ).first()
+        
+        if not asignacion:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes acceso a este paciente"
+            )
+    
+    # Obtener mensajes del chat desde PostgreSQL
+    mensajes = db.query(models.MensajeChat).filter(
+        models.MensajeChat.id_usuario == paciente_id
+    ).order_by(models.MensajeChat.fecha_hora.desc()).limit(limit).all()
+    
+    # También intentar obtener desde MongoDB si existe
+    try:
+        from mongodb_config import mongodb_service
+        mensajes_mongo = mongodb_service.get_chat_history(paciente_id, limit=limit)
+        
+        # Combinar mensajes de ambas fuentes
+        mensajes_combinados = []
+        
+        # Agregar mensajes de PostgreSQL
+        for m in mensajes:
+            mensajes_combinados.append({
+                "id": m.id_mensaje,
+                "mensaje": m.mensaje,
+                "es_bot": m.es_bot,
+                "fecha_hora": m.fecha_hora.isoformat(),
+                "emocion_detectada": m.emocion_detectada,
+                "sentimiento": m.sentimiento_mensaje,
+                "intencion": m.intencion
+            })
+        
+        # Agregar mensajes de MongoDB
+        for m in mensajes_mongo:
+            mensajes_combinados.append({
+                "id": str(m.get('_id', '')),
+                "mensaje": m.get('message', ''),
+                "es_bot": m.get('is_bot', False),
+                "fecha_hora": m.get('timestamp', datetime.utcnow()).isoformat(),
+                "emocion_detectada": m.get('emotional_analysis', {}).get('emotions', {}).get('dominant_emotion'),
+                "sentimiento": m.get('emotional_analysis', {}).get('sentiment', {}).get('sentiment_score'),
+                "intencion": m.get('intent')
+            })
+        
+        # Ordenar por fecha
+        mensajes_combinados.sort(key=lambda x: x['fecha_hora'], reverse=True)
+        mensajes_combinados = mensajes_combinados[:limit]
+        
+    except Exception as e:
+        print(f"⚠️ Error obteniendo mensajes de MongoDB: {e}")
+        # Si falla MongoDB, usar solo PostgreSQL
+        mensajes_combinados = [
+            {
+                "id": m.id_mensaje,
+                "mensaje": m.mensaje,
+                "es_bot": m.es_bot,
+                "fecha_hora": m.fecha_hora.isoformat(),
+                "emocion_detectada": m.emocion_detectada,
+                "sentimiento": m.sentimiento_mensaje,
+                "intencion": m.intencion
+            }
+            for m in mensajes
+        ]
+    
+    return {
+        "total_mensajes": len(mensajes_combinados),
+        "mensajes": mensajes_combinados
+    }
+
+
+# ==================== EDITAR PACIENTE ====================
+
+@app.put("/api/psicologos/paciente/{paciente_id}", tags=["Psicólogos"])
+async def editar_paciente(
+    paciente_id: int,
+    paciente_data: schemas.PacienteEditar,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Edita la información de un paciente
+    """
+    # Verificar que sea psicólogo
+    if current_user.rol != models.UserRole.PSICOLOGO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo psicólogos pueden editar pacientes"
+        )
+    
+    # Verificar que el psicólogo tenga acceso
+    asignacion = db.query(models.PacientePsicologo).filter(
+        models.PacientePsicologo.id_paciente == paciente_id,
+        models.PacientePsicologo.id_psicologo == current_user.id_usuario,
+        models.PacientePsicologo.activo == True
+    ).first()
+    
+    if not asignacion:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes acceso a este paciente"
+        )
+    
+    # Buscar paciente
+    paciente = db.query(models.Usuario).filter(
+        models.Usuario.id_usuario == paciente_id,
+        models.Usuario.rol == models.UserRole.PACIENTE
+    ).first()
+    
+    if not paciente:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Paciente no encontrado"
+        )
+    
+    # Actualizar campos si se proporcionan
+    if paciente_data.nombre is not None:
+        paciente.nombre = paciente_data.nombre
+    
+    if paciente_data.apellido is not None:
+        paciente.apellido = paciente_data.apellido
+    
+    if paciente_data.cedula is not None:
+        # Verificar que la cédula no esté en uso por otro paciente
+        existente = db.query(models.Usuario).filter(
+            models.Usuario.cedula == paciente_data.cedula,
+            models.Usuario.id_usuario != paciente_id
+        ).first()
+        if existente:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La cédula ya está registrada para otro paciente"
+            )
+        paciente.cedula = paciente_data.cedula
+    
+    if paciente_data.email is not None:
+        # Verificar que el email no esté en uso
+        existente = db.query(models.Usuario).filter(
+            models.Usuario.email == paciente_data.email,
+            models.Usuario.id_usuario != paciente_id
+        ).first()
+        if existente:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El email ya está registrado"
+            )
+        paciente.email = paciente_data.email
+    
+    if paciente_data.telefono is not None:
+        paciente.telefono = paciente_data.telefono
+    
+    if paciente_data.direccion is not None:
+        paciente.direccion = paciente_data.direccion
+    
+    if paciente_data.fecha_nacimiento is not None:
+        paciente.fecha_nacimiento = paciente_data.fecha_nacimiento
+    
+    if paciente_data.activo is not None:
+        paciente.activo = paciente_data.activo
+    
+    db.commit()
+    db.refresh(paciente)
+    
+    return {
+        "mensaje": "Paciente actualizado exitosamente",
+        "paciente": {
+            "id": paciente.id_usuario,
+            "nombre": paciente.nombre,
+            "apellido": paciente.apellido,
+            "cedula": paciente.cedula,
+            "email": paciente.email,
+            "telefono": paciente.telefono,
+            "direccion": paciente.direccion,
+            "activo": paciente.activo
+        }
+    }
+
+
+# ==================== ELIMINAR PACIENTE ====================
+
+@app.delete("/api/psicologos/paciente/{paciente_id}", tags=["Psicólogos"])
+async def eliminar_paciente(
+    paciente_id: int,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Elimina (desactiva) un paciente del sistema
+    """
+    # Verificar que sea psicólogo
+    if current_user.rol != models.UserRole.PSICOLOGO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo psicólogos pueden eliminar pacientes"
+        )
+    
+    # Verificar que el psicólogo tenga acceso
+    asignacion = db.query(models.PacientePsicologo).filter(
+        models.PacientePsicologo.id_paciente == paciente_id,
+        models.PacientePsicologo.id_psicologo == current_user.id_usuario,
+        models.PacientePsicologo.activo == True
+    ).first()
+    
+    if not asignacion:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes acceso a este paciente"
+        )
+    
+    # Buscar paciente
+    paciente = db.query(models.Usuario).filter(
+        models.Usuario.id_usuario == paciente_id,
+        models.Usuario.rol == models.UserRole.PACIENTE
+    ).first()
+    
+    if not paciente:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Paciente no encontrado"
+        )
+    
+    # Desactivar paciente (soft delete)
+    paciente.activo = False
+    
+    # Desactivar asignación
+    asignacion.activo = False
+    
+    db.commit()
+    
+    return {
+        "mensaje": f"Paciente {paciente.nombre} {paciente.apellido} desactivado exitosamente",
+        "paciente_id": paciente_id
+    }
+
+
+# ==================== OBTENER CITAS DEL PSICÓLOGO ====================
+
+@app.get("/api/psicologos/mis-citas", tags=["Psicólogos"])
+async def obtener_mis_citas(
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Obtiene todas las citas del psicólogo autenticado
+    """
+    if current_user.rol != models.UserRole.PSICOLOGO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo psicólogos pueden acceder a esta información"
+        )
+    
+    # Obtener citas
+    citas = db.query(models.Cita).filter(
+        models.Cita.id_psicologo == current_user.id_usuario
+    ).order_by(models.Cita.fecha.desc(), models.Cita.hora_inicio.desc()).all()
+    
+    # Enriquecer con información del paciente
+    citas_detalladas = []
+    for cita in citas:
+        paciente = db.query(models.Usuario).filter(
+            models.Usuario.id_usuario == cita.id_paciente
+        ).first()
+        
+        citas_detalladas.append({
+            "id_cita": cita.id_cita,
+            "fecha": cita.fecha.isoformat() if cita.fecha else None,
+            "hora_inicio": cita.hora_inicio.isoformat() if cita.hora_inicio else None,
+            "hora_fin": cita.hora_fin.isoformat() if cita.hora_fin else None,
+            "duracion_minutos": cita.duracion_minutos,
+            "estado": cita.estado.value,
+            "modalidad": cita.modalidad,
+            "paciente": {
+                "id": cita.id_paciente,
+                "nombre_completo": f"{paciente.nombre} {paciente.apellido}" if paciente else "Desconocido",
+                "email": paciente.email if paciente else None
+            },
+            "notas_previas": cita.notas_previas,
+            "notas_sesion": cita.notas_sesion,
+            "objetivos": cita.objetivos,
+            "tareas_asignadas": cita.tareas_asignadas
+        })
+    
+    return {
+        "total_citas": len(citas_detalladas),
+        "citas": citas_detalladas
     }

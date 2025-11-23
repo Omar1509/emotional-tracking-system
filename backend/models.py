@@ -34,6 +34,7 @@ class Usuario(Base):
     id_usuario = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(100), nullable=False)
     apellido = Column(String(100), nullable=False)
+    cedula = Column(String(20), unique=True, index=True)  # ✅ NUEVO CAMPO
     email = Column(String(150), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     telefono = Column(String(20))
@@ -43,6 +44,7 @@ class Usuario(Base):
     fecha_registro = Column(DateTime, default=datetime.utcnow)
     activo = Column(Boolean, default=True)
     ultimo_acceso = Column(DateTime)
+    debe_cambiar_password = Column(Boolean, default=False)  # ✅ NUEVO: para contraseñas temporales
     
     # Relaciones
     registros_emocionales = relationship("RegistroEmocional", back_populates="usuario", foreign_keys="RegistroEmocional.id_usuario")

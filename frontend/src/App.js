@@ -1,5 +1,5 @@
 // frontend/src/App.js
-// REEMPLAZAR TODO EL ARCHIVO
+// REEMPLAZAR COMPLETAMENTE EL ARCHIVO App.js
 
 import React, { useState, useEffect } from 'react';
 import './index.css';
@@ -17,6 +17,8 @@ import FormularioRegistroPsicologo from './components/Admin/FormularioRegistroPs
 import DashboardPsicologo from './components/Psicologo/DashboardPsicologo';
 import FormularioRegistroPaciente from './components/Psicologo/FormularioRegistroPaciente';
 import DetallePaciente from './components/Psicologo/DetallePaciente';
+import GestionPacientes from './components/Psicologo/GestionPacientes';
+import GestionCitas from './components/Psicologo/GestionCitas';
 
 // Componentes Paciente
 import DashboardPaciente from './components/Paciente/DashboardPaciente';
@@ -104,27 +106,17 @@ const App = () => {
         );
       }
       
+      // ✅ VISTA DE GESTIÓN DE PACIENTES (AHORA FUNCIONAL)
       if (currentView === 'pacientes') {
-        return (
-          <div className="text-center p-8">
-            <div className="text-6xl mb-4">👥</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Lista de Pacientes</h2>
-            <p className="text-gray-600">Próximamente: Vista completa de pacientes</p>
-          </div>
-        );
+        return <GestionPacientes setCurrentView={setCurrentView} setSelectedPacienteId={setSelectedPatientId} />;
       }
       
+      // ✅ VISTA DE GESTIÓN DE CITAS (AHORA FUNCIONAL)
       if (currentView === 'citas') {
-        return (
-          <div className="text-center p-8">
-            <div className="text-6xl mb-4">📅</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Agenda de Citas</h2>
-            <p className="text-gray-600">Próximamente: Calendario de citas</p>
-          </div>
-        );
+        return <GestionCitas setCurrentView={setCurrentView} />;
       }
       
-      // ✅ CORREGIDO: Pasar setSelectedPatientId
+      // Dashboard por defecto
       return (
         <DashboardPsicologo 
           setCurrentView={setCurrentView}

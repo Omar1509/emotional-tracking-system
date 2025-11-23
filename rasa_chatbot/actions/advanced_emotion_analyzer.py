@@ -1,5 +1,3 @@
-# rasa_chatbot/actions/advanced_emotion_analyzer.py
-
 from transformers import pipeline
 from typing import Dict, List, Optional
 import numpy as np
@@ -14,20 +12,18 @@ class AdvancedEmotionAnalyzer:
     def __init__(self):
         print("🤖 Inicializando analizador emocional avanzado...")
         
-        # Modelo de emociones (BETO)
         try:
             self.emotion_classifier = pipeline(
                 "text-classification",
                 model="finiteautomata/beto-emotion-analysis",
                 top_k=None,
-                device=-1  # CPU
+                device=-1 
             )
             print("✅ Modelo de emociones cargado")
         except Exception as e:
             print(f"⚠️ Error cargando modelo de emociones: {e}")
             self.emotion_classifier = None
         
-        # Modelo de sentimiento
         try:
             self.sentiment_analyzer = pipeline(
                 "sentiment-analysis",

@@ -8,6 +8,7 @@ class UsuarioBase(BaseModel):
     email: EmailStr
     nombre: str
     apellido: str
+    cedula: Optional[str] = None  # ✅ NUEVO CAMPO
     telefono: Optional[str] = None
     fecha_nacimiento: Optional[date] = None
     direccion: Optional[str] = None
@@ -19,6 +20,7 @@ class UsuarioCreate(UsuarioBase):
 class UsuarioUpdate(BaseModel):
     nombre: Optional[str] = None
     apellido: Optional[str] = None
+    cedula: Optional[str] = None  # ✅ NUEVO CAMPO
     telefono: Optional[str] = None
     direccion: Optional[str] = None
     fecha_nacimiento: Optional[date] = None
@@ -28,9 +30,51 @@ class Usuario(UsuarioBase):
     fecha_registro: datetime
     activo: bool
     ultimo_acceso: Optional[datetime] = None
+    debe_cambiar_password: bool = False  # ✅ NUEVO CAMPO
     
     class Config:
         from_attributes = True
+
+# ✅ NUEVO: Schema para registro de paciente por psicólogo
+class PacienteRegistro(BaseModel):
+    primer_nombre: str = Field(min_length=2, max_length=50)
+    segundo_nombre: Optional[str] = Field(None, max_length=50)
+    primer_apellido: str = Field(min_length=2, max_length=50)
+    segundo_apellido: Optional[str] = Field(None, max_length=50)
+    cedula: str = Field(min_length=10, max_length=20)  # ✅ NUEVO CAMPO OBLIGATORIO
+    correo: EmailStr  # ✅ NUEVO CAMPO OBLIGATORIO
+    telefono: str = Field(pattern=r'^\+?[0-9]{10,15}$')
+    direccion: str = Field(min_length=10)
+    fecha_nacimiento: date
+    genero: Optional[str] = Field(None, pattern=r'^(masculino|femenino|otro|prefiero_no_decir)$')
+    contacto_emergencia_nombre: str = Field(min_length=5)
+    contacto_emergencia_telefono: str = Field(pattern=r'^\+?[0-9]{10,15}$')
+    contacto_emergencia_relacion: str
+    alergias: Optional[str] = None
+    medicamentos_actuales: Optional[str] = None
+    condiciones_medicas: Optional[str] = None
+    motivo_consulta: str = Field(min_length=20)
+    
+    @validator('fecha_nacimiento')
+    def validar_edad_minima(cls, v):
+        today = date.today()
+        age = today.year - v.year - ((today.month, today.day) < (v.month, v.day))
+        if age < 13:
+            raise ValueError('El paciente debe tener al menos 13 años')
+        if age > 120:
+            raise ValueError('Fecha de nacimiento inválida')
+        return v
+
+# ✅ NUEVO: Schema para editar paciente
+class PacienteEditar(BaseModel):
+    nombre: Optional[str] = None
+    apellido: Optional[str] = None
+    cedula: Optional[str] = None
+    email: Optional[EmailStr] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    fecha_nacimiento: Optional[date] = None
+    activo: Optional[bool] = None
 
 # Registro Emocional Schemas
 class RegistroEmocionalBase(BaseModel):
@@ -96,7 +140,7 @@ class MensajeChat(MensajeChatBase):
     class Config:
         from_attributes = True
 
-# Cita Schemas
+# ✅ NUEVO: Schemas para Citas
 class CitaBase(BaseModel):
     fecha: date
     hora_inicio: time
@@ -109,14 +153,16 @@ class CitaBase(BaseModel):
 
 class CitaCreate(CitaBase):
     id_paciente: int
-    id_psicologo: int
 
 class CitaUpdate(BaseModel):
     fecha: Optional[date] = None
     hora_inicio: Optional[time] = None
+    hora_fin: Optional[time] = None
     estado: Optional[AppointmentStatus] = None
     notas_sesion: Optional[str] = None
     tareas_asignadas: Optional[str] = None
+    modalidad: Optional[str] = None
+    url_videollamada: Optional[str] = None
 
 class Cita(CitaBase):
     id_cita: int
@@ -126,6 +172,12 @@ class Cita(CitaBase):
     recordatorio_enviado: bool
     fecha_creacion: datetime
     fecha_modificacion: Optional[datetime] = None
+    notas_sesion: Optional[str] = None
+    tareas_asignadas: Optional[str] = None
+    
+    # ✅ NUEVO: Información del paciente y psicólogo
+    paciente_nombre: Optional[str] = None
+    psicologo_nombre: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -241,12 +293,28 @@ class Token(BaseModel):
     role: str
     user_id: int
     nombre_completo: str
+    debe_cambiar_password: bool = False  # ✅ NUEVO CAMPO
 
 class TokenData(BaseModel):
     email: Optional[str] = None
     user_id: Optional[int] = None
 
-# Schemas de Registro Completo
+# ✅ NUEVO: Schema para cambio de contraseña
+class CambioPassword(BaseModel):
+    password_actual: str
+    password_nueva: str = Field(min_length=8)
+    
+    @validator('password_nueva')
+    def validar_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('La contraseña debe tener al menos 8 caracteres')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('La contraseña debe contener al menos un número')
+        if not any(c.isupper() for c in v):
+            raise ValueError('La contraseña debe contener al menos una mayúscula')
+        return v
+
+# Schemas de Registro Completo (compatibilidad)
 class RegistroPacienteCompleto(BaseModel):
     primer_nombre: str = Field(min_length=2, max_length=50)
     segundo_nombre: Optional[str] = Field(None, max_length=50)
@@ -266,7 +334,6 @@ class RegistroPacienteCompleto(BaseModel):
     
     @validator('fecha_nacimiento')
     def validar_edad_minima(cls, v):
-        from datetime import date
         today = date.today()
         age = today.year - v.year - ((today.month, today.day) < (v.month, v.day))
         if age < 13:
@@ -292,7 +359,6 @@ class RegistroPsicologoCompleto(BaseModel):
     
     @validator('fecha_nacimiento')
     def validar_edad_profesional(cls, v):
-        from datetime import date
         today = date.today()
         age = today.year - v.year - ((today.month, today.day) < (v.month, v.day))
         if age < 23:

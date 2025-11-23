@@ -118,17 +118,6 @@ const DashboardPaciente = ({ setCurrentView }) => {
             <h4 className="font-bold text-gray-800 mb-2">Chat de Apoyo</h4>
             <p className="text-sm text-gray-600 text-center">Habla con nuestro asistente</p>
           </button>
-
-          <button
-            onClick={() => setCurrentView('estadisticas')}
-            className="flex flex-col items-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 rounded-xl transition-all border border-purple-200 group"
-          >
-            <div className="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <BarChart3 className="w-8 h-8 text-white" />
-            </div>
-            <h4 className="font-bold text-gray-800 mb-2">Mis Estadísticas</h4>
-            <p className="text-sm text-gray-600 text-center">Ve tu progreso</p>
-          </button>
         </div>
       </div>
 
