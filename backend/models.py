@@ -246,3 +246,99 @@ class ConfiguracionSistema(Base):
     tipo_dato = Column(String(20))  # string, integer, boolean, json
     fecha_modificacion = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     modificado_por = Column(Integer, ForeignKey("usuarios.id_usuario"))
+
+class EmocionDiaria(Base):
+    __tablename__ = "emociones_diarias"
+    
+    id_emocion_diaria = Column(Integer, primary_key=True, index=True)
+    id_usuario = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=False)
+    fecha = Column(Date, nullable=False, index=True)
+    
+    # Promedios de emociones
+    alegria_promedio = Column(Float, default=0.0)
+    tristeza_promedio = Column(Float, default=0.0)
+    ansiedad_promedio = Column(Float, default=0.0)
+    enojo_promedio = Column(Float, default=0.0)
+    miedo_promedio = Column(Float, default=0.0)
+    
+    # Emoción dominante del día
+    emocion_dominante = Column(String(50))
+    
+    # Nivel de riesgo promedio
+    nivel_riesgo_promedio = Column(Float, default=0.0)
+    
+    # Metadata
+    total_interacciones = Column(Integer, default=0)
+    fecha_calculo = Column(DateTime, default=datetime.utcnow)
+    
+    # Relación
+    usuario = relationship("Usuario", foreign_keys=[id_usuario])
+
+
+class Ejercicio(Base):
+    __tablename__ = "ejercicios"
+    
+    id_ejercicio = Column(Integer, primary_key=True, index=True)
+    titulo = Column(String(200), nullable=False)
+    descripcion = Column(Text, nullable=False)
+    tipo = Column(String(50), nullable=False)  # respiracion, meditacion, escritura, etc.
+    duracion_minutos = Column(Integer, nullable=False)
+    nivel_dificultad = Column(String(20))  # facil, medio, dificil
+    instrucciones = Column(Text, nullable=False)
+    objetivo = Column(Text)
+    
+    # Metadata
+    id_psicologo_creador = Column(Integer, ForeignKey("usuarios.id_usuario"))
+    fecha_creacion = Column(DateTime, default=datetime.utcnow)
+    activo = Column(Boolean, default=True)
+    
+    # Relaciones
+    asignaciones = relationship("EjercicioAsignado", back_populates="ejercicio")
+
+
+class EjercicioAsignado(Base):
+    __tablename__ = "ejercicios_asignados"
+    
+    id_asignacion = Column(Integer, primary_key=True, index=True)
+    id_ejercicio = Column(Integer, ForeignKey("ejercicios.id_ejercicio"), nullable=False)
+    id_paciente = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=False)
+    id_psicologo = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=False)
+    
+    # Programación
+    fecha_inicio = Column(Date, nullable=False)
+    fecha_fin = Column(Date, nullable=False)
+    frecuencia = Column(String(50))  # diario, semanal, etc.
+    veces_requeridas = Column(Integer, nullable=False)
+    veces_completadas = Column(Integer, default=0)
+    
+    # Estado
+    estado = Column(String(20), default="pendiente")  # pendiente, en_progreso, completado, vencido
+    
+    # Notas
+    notas_psicologo = Column(Text)
+    
+    # Metadata
+    fecha_asignacion = Column(DateTime, default=datetime.utcnow)
+    
+    # Relaciones
+    ejercicio = relationship("Ejercicio", back_populates="asignaciones")
+    completados = relationship("EjercicioCompletado", back_populates="asignacion")
+
+
+class EjercicioCompletado(Base):
+    __tablename__ = "ejercicios_completados"
+    
+    id_completado = Column(Integer, primary_key=True, index=True)
+    id_asignacion = Column(Integer, ForeignKey("ejercicios_asignados.id_asignacion"), nullable=False)
+    
+    # Detalles de la sesión
+    fecha_completado = Column(DateTime, default=datetime.utcnow)
+    duracion_real_minutos = Column(Integer)
+    
+    # Evaluación del paciente
+    calificacion = Column(Integer)  # 1-5
+    comentarios = Column(Text)
+    dificultad_percibida = Column(String(20))  # facil, medio, dificil
+    
+    # Relación
+    asignacion = relationship("EjercicioAsignado", back_populates="completados")

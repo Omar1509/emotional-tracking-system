@@ -1,20 +1,24 @@
 // frontend/src/components/Psicologo/GestionCitas.js
-// COMPONENTE NUEVO - Sistema completo de citas médicas
+// ✅ VERSIÓN OPTIMIZADA - 100% TAILWIND CSS (SIN CSS EXTERNO)
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, Plus, Edit2, X, Save, Clock, Video, MapPin, Check, XCircle } from 'lucide-react';
-import API_URL from '../../config/api';
+import { api } from '../../config/api';
+import { Calendar, Clock, Video, MapPin, Plus, Check, X, AlertCircle, User } from 'lucide-react';
+import Notificacion from '../Shared/Notificacion';
 
-const GestionCitas = ({ setCurrentView }) => {
+const GestionCitas = () => {
   const [citas, setCitas] = useState([]);
   const [pacientes, setPacientes] = useState([]);
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({
+  const [notificacion, setNotificacion] = useState(null);
+  const [filtro, setFiltro] = useState('todas');
+
+  const [formularioCita, setFormularioCita] = useState({
     id_paciente: '',
     fecha: '',
     hora_inicio: '',
+    hora_fin: '',
     duracion_minutos: 60,
     modalidad: 'virtual',
     url_videollamada: '',
@@ -23,402 +27,494 @@ const GestionCitas = ({ setCurrentView }) => {
   });
 
   useEffect(() => {
-    cargarCitas();
-    cargarPacientes();
+    cargarDatos();
   }, []);
 
-  const cargarCitas = async () => {
+  const cargarDatos = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/psicologos/mis-citas`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      setLoading(true);
 
-      if (response.ok) {
-        const data = await response.json();
-        setCitas(data.citas || []);
-      }
+      const citasResponse = await api.get('/citas/psicologo/mis-citas');
+      setCitas(citasResponse.citas || []);
+
+      const pacientesResponse = await api.get('/psicologos/mis-pacientes');
+      setPacientes(pacientesResponse.pacientes || []);
+
+      setLoading(false);
     } catch (error) {
-      console.error('Error cargando citas:', error);
-    } finally {
+      console.error('Error cargando datos:', error);
+      mostrarNotificacion('error', 'Error', 'No se pudieron cargar los datos');
       setLoading(false);
     }
   };
 
-  const cargarPacientes = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/psicologos/mis-pacientes`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setPacientes(data.pacientes || []);
-      }
-    } catch (error) {
-      console.error('Error cargando pacientes:', error);
-    }
+  const mostrarNotificacion = (tipo, titulo, descripcion) => {
+    setNotificacion({ tipo, titulo, descripcion });
+    setTimeout(() => setNotificacion(null), 5000);
   };
 
-  const handleNuevaCita = () => {
-    setFormData({
-      id_paciente: '',
-      fecha: '',
-      hora_inicio: '',
-      duracion_minutos: 60,
-      modalidad: 'virtual',
-      url_videollamada: '',
-      notas_previas: '',
-      objetivos: ''
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormularioCita({
+      ...formularioCita,
+      [name]: value
     });
-    setEditingId(null);
-    setShowModal(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
 
     try {
-      const token = localStorage.getItem('token');
-      const url = editingId 
-        ? `${API_URL}/psicologos/citas/${editingId}`
-        : `${API_URL}/psicologos/citas`;
-      
-      const method = editingId ? 'PUT' : 'POST';
+      const citaData = {
+        id_paciente: parseInt(formularioCita.id_paciente),
+        fecha: formularioCita.fecha,
+        hora_inicio: formularioCita.hora_inicio,
+        hora_fin: formularioCita.hora_fin || null,
+        duracion_minutos: parseInt(formularioCita.duracion_minutos),
+        modalidad: formularioCita.modalidad,
+        url_videollamada: formularioCita.url_videollamada || null,
+        notas_previas: formularioCita.notas_previas || null,
+        objetivos: formularioCita.objetivos || null
+      };
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
+      const response = await api.post('/citas/crear', citaData);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Error guardando cita');
+      if (response.notificacion) {
+        mostrarNotificacion(
+          response.notificacion.tipo,
+          response.notificacion.titulo,
+          response.notificacion.descripcion
+        );
+      } else {
+        mostrarNotificacion('exito', '¡Cita Creada!', 'La cita se ha programado correctamente');
       }
 
-      alert(editingId ? 'Cita actualizada' : 'Cita creada exitosamente');
-      setShowModal(false);
-      cargarCitas();
+      setFormularioCita({
+        id_paciente: '',
+        fecha: '',
+        hora_inicio: '',
+        hora_fin: '',
+        duracion_minutos: 60,
+        modalidad: 'virtual',
+        url_videollamada: '',
+        notas_previas: '',
+        objetivos: ''
+      });
+
+      setMostrarFormulario(false);
+      cargarDatos();
+
     } catch (error) {
-      console.error('Error:', error);
-      alert(error.message);
-    } finally {
-      setLoading(false);
+      console.error('Error creando cita:', error);
+      mostrarNotificacion(
+        'error',
+        'Error',
+        error.message || 'No se pudo crear la cita'
+      );
     }
   };
 
-  const handleCancelarCita = async (citaId) => {
-    if (!window.confirm('¿Está seguro de cancelar esta cita?')) return;
-
+  const actualizarEstadoCita = async (idCita, nuevoEstado) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/psicologos/citas/${citaId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        alert('Cita cancelada');
-        cargarCitas();
-      }
+      await api.put(`/citas/${idCita}`, { estado: nuevoEstado });
+      mostrarNotificacion('exito', 'Estado Actualizado', `Cita marcada como ${nuevoEstado}`);
+      cargarDatos();
     } catch (error) {
-      console.error('Error:', error);
-      alert('Error cancelando cita');
+      console.error('Error actualizando estado:', error);
+      mostrarNotificacion('error', 'Error', 'No se pudo actualizar el estado');
     }
   };
 
-  const getEstadoColor = (estado) => {
-    const colors = {
-      'programada': 'bg-blue-100 text-blue-800',
-      'completada': 'bg-green-100 text-green-800',
-      'cancelada': 'bg-red-100 text-red-800',
-      'no_asistio': 'bg-gray-100 text-gray-800'
+  const citasFiltradas = citas.filter(cita => {
+    if (filtro === 'pendientes') return cita.estado === 'programada';
+    if (filtro === 'completadas') return cita.estado === 'completada';
+    if (filtro === 'hoy') {
+      const hoy = new Date().toISOString().split('T')[0];
+      return cita.fecha === hoy;
+    }
+    return true;
+  });
+
+  const getEstadoBadge = (estado) => {
+    const badges = {
+      'programada': { color: 'bg-yellow-100 text-yellow-800 border-yellow-300', icon: '⏳', text: 'Pendiente' },
+      'completada': { color: 'bg-green-100 text-green-800 border-green-300', icon: '✓', text: 'Completada' },
+      'no_asistio': { color: 'bg-red-100 text-red-800 border-red-300', icon: '✗', text: 'No asistió' },
+      'cancelada': { color: 'bg-gray-100 text-gray-800 border-gray-300', icon: '⊗', text: 'Cancelada' }
     };
-    return colors[estado] || 'bg-gray-100 text-gray-800';
+    return badges[estado] || badges.programada;
   };
 
-  const getEstadoIcon = (estado) => {
-    const icons = {
-      'programada': <Clock className="w-4 h-4" />,
-      'completada': <Check className="w-4 h-4" />,
-      'cancelada': <XCircle className="w-4 h-4" />,
-      'no_asistio': <X className="w-4 h-4" />
-    };
-    return icons[estado] || <Clock className="w-4 h-4" />;
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-purple-500 via-blue-500 to-indigo-600">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mb-4"></div>
+        <p className="text-white text-xl font-semibold">Cargando citas...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-purple-500 via-blue-500 to-indigo-600 p-8 space-y-6 animate-fadeIn">
+      {notificacion && (
+        <Notificacion
+          tipo={notificacion.tipo}
+          titulo={notificacion.titulo}
+          descripcion={notificacion.descripcion}
+          onClose={() => setNotificacion(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-gray-800">Gestión de Citas</h2>
-          <p className="text-gray-600 mt-1">Programa y administra sesiones con tus pacientes</p>
+          <h1 className="text-4xl font-bold text-white mb-2 flex items-center space-x-3">
+            <Calendar className="w-10 h-10" />
+            <span>Gestión de Citas</span>
+          </h1>
+          <p className="text-purple-100 text-lg">Administra las citas con tus pacientes</p>
         </div>
-        <button
-          onClick={handleNuevaCita}
-          className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg"
+        <button 
+          onClick={() => setMostrarFormulario(!mostrarFormulario)}
+          className="flex items-center space-x-2 px-6 py-3 bg-white text-purple-600 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
         >
-          <Plus className="w-5 h-5" />
-          <span>Nueva Cita</span>
+          {mostrarFormulario ? (
+            <>
+              <X className="w-5 h-5" />
+              <span>Cancelar</span>
+            </>
+          ) : (
+            <>
+              <Plus className="w-5 h-5" />
+              <span>Nueva Cita</span>
+            </>
+          )}
         </button>
       </div>
 
-      {/* Lista de Citas */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        {loading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-          </div>
-        ) : citas.length === 0 ? (
-          <div className="text-center py-12">
-            <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-600">No hay citas programadas</p>
-            <button
-              onClick={handleNuevaCita}
-              className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            >
-              Programar Primera Cita
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {citas.map(cita => (
-              <div
-                key={cita.id_cita}
-                className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-800">
-                        {cita.paciente.nombre}
-                      </h3>
-                      <span className={`flex items-center space-x-1 px-3 py-1 rounded-full text-sm font-medium ${getEstadoColor(cita.estado)}`}>
-                        {getEstadoIcon(cita.estado)}
-                        <span className="capitalize">{cita.estado.replace('_', ' ')}</span>
-                      </span>
-                    </div>
+      {/* Formulario de Nueva Cita */}
+      {mostrarFormulario && (
+        <div className="bg-white rounded-2xl shadow-2xl p-8 space-y-6 animate-fadeIn">
+          <h3 className="text-2xl font-bold text-gray-800 flex items-center space-x-2">
+            <Calendar className="w-7 h-7 text-purple-600" />
+            <span>Programar Nueva Cita</span>
+          </h3>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4" />
-                        <span>{new Date(cita.fecha).toLocaleDateString('es-ES')}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Clock className="w-4 h-4" />
-                        <span>{cita.hora_inicio} ({cita.duracion_minutos} min)</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {cita.modalidad === 'virtual' ? (
-                          <Video className="w-4 h-4" />
-                        ) : (
-                          <MapPin className="w-4 h-4" />
-                        )}
-                        <span className="capitalize">{cita.modalidad}</span>
-                      </div>
-                    </div>
-
-                    {cita.notas_previas && (
-                      <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                        <p className="text-sm text-gray-700">{cita.notas_previas}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center space-x-2 ml-4">
-                    {cita.estado === 'programada' && (
-                      <>
-                        <button
-                          onClick={() => {
-                            setEditingId(cita.id_cita);
-                            setFormData({
-                              ...cita,
-                              hora_inicio: cita.hora_inicio.substring(0, 5)
-                            });
-                            setShowModal(true);
-                          }}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                        >
-                          <Edit2 className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleCancelarCita(cita.id_cita)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Paciente y Fecha */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Paciente *
+                </label>
+                <select
+                  name="id_paciente"
+                  value={formularioCita.id_paciente}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                >
+                  <option value="">Selecciona un paciente</option>
+                  {pacientes.map(paciente => (
+                    <option key={paciente.id} value={paciente.id}>
+                      {paciente.nombre} {paciente.apellido}
+                    </option>
+                  ))}
+                </select>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Modal de Nueva/Editar Cita */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-t-xl">
-              <h3 className="text-2xl font-bold">
-                {editingId ? 'Editar Cita' : 'Nueva Cita'}
-              </h3>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Fecha *
+                </label>
+                <input
+                  type="date"
+                  name="fecha"
+                  value={formularioCita.fecha}
+                  onChange={handleInputChange}
+                  required
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                />
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Paciente */}
-              {!editingId && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Paciente *
-                  </label>
-                  <select
-                    value={formData.id_paciente}
-                    onChange={(e) => setFormData({ ...formData, id_paciente: parseInt(e.target.value) })}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Seleccionar paciente...</option>
-                    {pacientes.map(p => (
-                      <option key={p.id_paciente} value={p.id_paciente}>
-                        {p.nombre_completo}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Fecha y Hora */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fecha *
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.fecha}
-                    onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Hora *
-                  </label>
-                  <input
-                    type="time"
-                    value={formData.hora_inicio}
-                    onChange={(e) => setFormData({ ...formData, hora_inicio: e.target.value })}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
+            {/* Horarios */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Hora Inicio *
+                </label>
+                <input
+                  type="time"
+                  name="hora_inicio"
+                  value={formularioCita.hora_inicio}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                />
               </div>
 
-              {/* Duración y Modalidad */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Duración (minutos)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.duracion_minutos}
-                    onChange={(e) => setFormData({ ...formData, duracion_minutos: parseInt(e.target.value) })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Modalidad
-                  </label>
-                  <select
-                    value={formData.modalidad}
-                    onChange={(e) => setFormData({ ...formData, modalidad: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="virtual">Virtual</option>
-                    <option value="presencial">Presencial</option>
-                    <option value="telefonica">Telefónica</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Hora Fin
+                </label>
+                <input
+                  type="time"
+                  name="hora_fin"
+                  value={formularioCita.hora_fin}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                />
               </div>
 
-              {/* URL Videollamada */}
-              {formData.modalidad === 'virtual' && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Duración (min)
+                </label>
+                <input
+                  type="number"
+                  name="duracion_minutos"
+                  value={formularioCita.duracion_minutos}
+                  onChange={handleInputChange}
+                  min="15"
+                  step="15"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Modalidad */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Modalidad *
+                </label>
+                <select
+                  name="modalidad"
+                  value={formularioCita.modalidad}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                >
+                  <option value="virtual">💻 Virtual</option>
+                  <option value="presencial">🏥 Presencial</option>
+                </select>
+              </div>
+
+              {formularioCita.modalidad === 'virtual' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    URL de Videollamada
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    URL Videollamada
                   </label>
                   <input
                     type="url"
-                    value={formData.url_videollamada}
-                    onChange={(e) => setFormData({ ...formData, url_videollamada: e.target.value })}
+                    name="url_videollamada"
+                    value={formularioCita.url_videollamada}
+                    onChange={handleInputChange}
                     placeholder="https://meet.google.com/..."
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
                   />
                 </div>
               )}
+            </div>
 
-              {/* Notas */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Notas Previas
-                </label>
-                <textarea
-                  value={formData.notas_previas}
-                  onChange={(e) => setFormData({ ...formData, notas_previas: e.target.value })}
-                  rows="3"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Temas a tratar, preparación necesaria..."
-                />
-              </div>
+            {/* Notas */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Notas Previas
+              </label>
+              <textarea
+                name="notas_previas"
+                value={formularioCita.notas_previas}
+                onChange={handleInputChange}
+                rows="3"
+                placeholder="Notas o preparación para la sesión..."
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all resize-none"
+              />
+            </div>
 
-              {/* Objetivos */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Objetivos de la Sesión
-                </label>
-                <textarea
-                  value={formData.objetivos}
-                  onChange={(e) => setFormData({ ...formData, objetivos: e.target.value })}
-                  rows="3"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Objetivos terapéuticos para esta sesión..."
-                />
-              </div>
+            {/* Objetivos */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Objetivos de la Sesión
+              </label>
+              <textarea
+                name="objetivos"
+                value={formularioCita.objetivos}
+                onChange={handleInputChange}
+                rows="3"
+                placeholder="¿Qué se espera lograr en esta sesión?"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all resize-none"
+              />
+            </div>
 
-              {/* Botones */}
-              <div className="flex items-center space-x-4">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 bg-blue-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-600 transition-all disabled:opacity-50"
-                >
-                  {loading ? 'Guardando...' : editingId ? 'Actualizar Cita' : 'Crear Cita'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          </div>
+            {/* Botones */}
+            <div className="flex items-center space-x-4 pt-4">
+              <button
+                type="button"
+                onClick={() => setMostrarFormulario(false)}
+                className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg"
+              >
+                Crear Cita
+              </button>
+            </div>
+          </form>
         </div>
       )}
+
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-3">
+        {[
+          { id: 'todas', label: 'Todas', count: citas.length },
+          { id: 'hoy', label: 'Hoy', count: citas.filter(c => c.fecha === new Date().toISOString().split('T')[0]).length },
+          { id: 'pendientes', label: 'Pendientes', count: citas.filter(c => c.estado === 'programada').length },
+          { id: 'completadas', label: 'Completadas', count: citas.filter(c => c.estado === 'completada').length }
+        ].map(f => (
+          <button
+            key={f.id}
+            onClick={() => setFiltro(f.id)}
+            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+              filtro === f.id
+                ? 'bg-white text-purple-600 shadow-lg scale-105'
+                : 'bg-white bg-opacity-20 text-white hover:bg-opacity-30'
+            }`}
+          >
+            {f.label} ({f.count})
+          </button>
+        ))}
+      </div>
+
+      {/* Lista de Citas */}
+      <div className="space-y-4">
+        {citasFiltradas.length > 0 ? (
+          citasFiltradas.map(cita => {
+            const badge = getEstadoBadge(cita.estado);
+            
+            return (
+              <div
+                key={cita.id_cita}
+                className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all p-6 space-y-4"
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-4">
+                    <div className="w-14 h-14 bg-gradient-to-br from-purple-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+                      {cita.paciente.nombre_completo?.charAt(0) || 'P'}
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-bold text-gray-800 mb-1">
+                        {cita.paciente.nombre_completo}
+                      </h4>
+                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                        <span className="flex items-center space-x-1">
+                          <Calendar className="w-4 h-4" />
+                          <span>
+                            {new Date(cita.fecha).toLocaleDateString('es-ES', { 
+                              weekday: 'long', 
+                              day: 'numeric',
+                              month: 'long'
+                            })}
+                          </span>
+                        </span>
+                        <span className="flex items-center space-x-1">
+                          <Clock className="w-4 h-4" />
+                          <span>
+                            {cita.hora_inicio?.substring(0, 5)} - {cita.hora_fin?.substring(0, 5)}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <span className={`px-4 py-2 ${badge.color} border-2 rounded-full text-sm font-semibold flex items-center space-x-1`}>
+                    <span>{badge.icon}</span>
+                    <span>{badge.text}</span>
+                  </span>
+                </div>
+
+                {/* Detalles */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2 text-gray-700">
+                    {cita.modalidad === 'virtual' ? (
+                      <>
+                        <Video className="w-5 h-5 text-purple-600" />
+                        <span className="font-medium">Virtual</span>
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="w-5 h-5 text-purple-600" />
+                        <span className="font-medium">Presencial</span>
+                      </>
+                    )}
+                    <span className="text-gray-500">• {cita.duracion_minutos} minutos</span>
+                  </div>
+
+                  {cita.notas_previas && (
+                    <div className="bg-blue-50 p-4 rounded-xl border-l-4 border-blue-500">
+                      <p className="text-sm font-semibold text-blue-900 mb-1">📝 Notas previas:</p>
+                      <p className="text-sm text-blue-800">{cita.notas_previas}</p>
+                    </div>
+                  )}
+
+                  {cita.objetivos && (
+                    <div className="bg-purple-50 p-4 rounded-xl border-l-4 border-purple-500">
+                      <p className="text-sm font-semibold text-purple-900 mb-1">🎯 Objetivos:</p>
+                      <p className="text-sm text-purple-800">{cita.objetivos}</p>
+                    </div>
+                  )}
+
+                  {cita.notas_sesion && (
+                    <div className="bg-green-50 p-4 rounded-xl border-l-4 border-green-500">
+                      <p className="text-sm font-semibold text-green-900 mb-1">💬 Notas de sesión:</p>
+                      <p className="text-sm text-green-800">{cita.notas_sesion}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Acciones */}
+                {cita.estado === 'programada' && (
+                  <div className="flex items-center space-x-3 pt-4 border-t">
+                    <button
+                      onClick={() => actualizarEstadoCita(cita.id_cita, 'completada')}
+                      className="flex-1 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-all font-semibold flex items-center justify-center space-x-2"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Completar</span>
+                    </button>
+                    <button
+                      onClick={() => actualizarEstadoCita(cita.id_cita, 'no_asistio')}
+                      className="flex-1 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-all font-semibold flex items-center justify-center space-x-2"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>No Asistió</span>
+                    </button>
+                    <button
+                      onClick={() => actualizarEstadoCita(cita.id_cita, 'cancelada')}
+                      className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        ) : (
+          <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+            <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600 text-lg">
+              No hay citas {filtro !== 'todas' && filtro}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

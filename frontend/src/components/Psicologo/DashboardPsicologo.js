@@ -1,5 +1,4 @@
 // frontend/src/components/Psicologo/DashboardPsicologo.js
-// REEMPLAZAR TODO EL ARCHIVO
 
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Calendar, TrendingUp, AlertTriangle, Clock, ChevronRight } from 'lucide-react';
@@ -54,10 +53,14 @@ const DashboardPsicologo = ({ setCurrentView, setSelectedPacienteId }) => {
     setCurrentView('detalle-paciente');
   };
 
-  const pacientesConAlertas = pacientes.filter(p => p.alertas_activas > 0);
-  const totalRegistrosSemana = pacientes.reduce((sum, p) => sum + p.registros_ultima_semana, 0);
-  const promedioAnimo = pacientes.length > 0 
-    ? (pacientes.reduce((sum, p) => sum + p.promedio_animo_7dias, 0) / pacientes.length).toFixed(1)
+  // Se asegura que pacientes sea un arreglo antes de usar filter/reduce
+  const safePacientes = pacientes || [];
+  
+  const pacientesConAlertas = safePacientes.filter(p => p.alertas_activas > 0);
+  const totalRegistrosSemana = safePacientes.reduce((sum, p) => sum + (p.registros_ultima_semana || 0), 0);
+  
+  const promedioAnimo = safePacientes.length > 0 
+    ? (safePacientes.reduce((sum, p) => sum + (p.promedio_animo_7dias || 0), 0) / safePacientes.length).toFixed(1)
     : 0;
 
   return (
@@ -73,7 +76,7 @@ const DashboardPsicologo = ({ setCurrentView, setSelectedPacienteId }) => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-blue-100 text-sm">Mis Pacientes</p>
-              <p className="text-4xl font-bold mt-2">{pacientes.length}</p>
+              <p className="text-4xl font-bold mt-2">{safePacientes.length}</p>
             </div>
             <Users className="w-10 h-10 text-blue-200" />
           </div>
@@ -156,7 +159,7 @@ const DashboardPsicologo = ({ setCurrentView, setSelectedPacienteId }) => {
                   <div key={paciente.id_paciente} className="bg-white rounded-lg p-3 shadow-sm">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-semibold text-gray-800">{paciente.nombre_completo}</p>
+                        <p className="font-semibold text-gray-800">{paciente.nombre_completo || 'Paciente Desconocido'}</p>
                         <p className="text-sm text-gray-600">
                           {paciente.alertas_activas} alerta(s) activa(s) - Ánimo: {paciente.promedio_animo_7dias}/10
                         </p>
@@ -181,8 +184,8 @@ const DashboardPsicologo = ({ setCurrentView, setSelectedPacienteId }) => {
       <div className="bg-white rounded-xl shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-gray-800">Mis Pacientes</h3>
-          {pacientes.length > 0 && (
-            <span className="text-sm text-gray-500">{pacientes.length} paciente(s)</span>
+          {safePacientes.length > 0 && (
+            <span className="text-sm text-gray-500">{safePacientes.length} paciente(s)</span>
           )}
         </div>
         
@@ -190,7 +193,7 @@ const DashboardPsicologo = ({ setCurrentView, setSelectedPacienteId }) => {
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
           </div>
-        ) : pacientes.length === 0 ? (
+        ) : safePacientes.length === 0 ? (
           <div className="text-center py-8">
             <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
             <p className="text-gray-600 mb-4">No tienes pacientes asignados aún</p>
@@ -203,7 +206,7 @@ const DashboardPsicologo = ({ setCurrentView, setSelectedPacienteId }) => {
           </div>
         ) : (
           <div className="space-y-3">
-            {pacientes.map(paciente => (
+            {safePacientes.map(paciente => (
               <button
                 key={paciente.id_paciente}
                 onClick={() => verDetallePaciente(paciente.id_paciente)}
@@ -211,21 +214,22 @@ const DashboardPsicologo = ({ setCurrentView, setSelectedPacienteId }) => {
               >
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold group-hover:scale-110 transition-transform">
-                    {paciente.nombre_completo.charAt(0)}
+                    {/* CORRECCIÓN: Usar encadenamiento opcional y fallback */}
+                    {paciente.nombre_completo?.charAt(0) || '?'} 
                   </div>
                   <div className="text-left">
                     <p className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">
-                      {paciente.nombre_completo}
+                      {paciente.nombre_completo || 'Paciente Desconocido'}
                     </p>
                     <p className="text-sm text-gray-600">
-                      {paciente.registros_ultima_semana} registros esta semana
+                      {(paciente.registros_ultima_semana || 0)} registros esta semana
                       {paciente.email && ` • ${paciente.email}`}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-4">
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-blue-600">{paciente.promedio_animo_7dias}/10</p>
+                    <p className="text-2xl font-bold text-blue-600">{(paciente.promedio_animo_7dias || 0)}/10</p>
                     <p className="text-xs text-gray-500">Promedio 7 días</p>
                   </div>
                   <ChevronRight className="w-6 h-6 text-gray-400 group-hover:text-blue-500 transition-colors" />

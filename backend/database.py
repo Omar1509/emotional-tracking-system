@@ -41,3 +41,8 @@ def drop_db():
     import models
     Base.metadata.drop_all(bind=engine)
     print("⚠️ Todas las tablas han sido eliminadas")
+
+def get_mongo_db():
+    """Dependency para obtener la base de datos MongoDB"""
+    from mongodb_config import mongodb_service
+    return mongodb_service.db

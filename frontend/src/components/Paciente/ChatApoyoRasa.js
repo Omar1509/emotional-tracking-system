@@ -1,318 +1,279 @@
 // frontend/src/components/Paciente/ChatApoyoRasa.js
+// ✅ VERSIÓN OPTIMIZADA - USA API CENTRALIZADA
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, AlertCircle, CheckCircle } from 'lucide-react';
+import { api, getCurrentUser } from '../../config/api';  // ✅ Importar API centralizada
+import Notificacion from '../Shared/Notificacion';
 
-const ChatApoyoRasa = ({ setCurrentView }) => {
-  const [messages, setMessages] = useState([]);
-  const [inputMessage, setInputMessage] = useState('');
+const ChatApoyoRasa = () => {
+  const [mensajes, setMensajes] = useState([]);
+  const [mensaje, setMensaje] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
-  const [connectionError, setConnectionError] = useState('');
-  const messagesEndRef = useRef(null);
-  const hasInitialized = useRef(false);
-
-  const RASA_URL = 'http://localhost:5006/webhooks/rest/webhook';
-  const userData = JSON.parse(localStorage.getItem('user') || '{}');
-  const userId = userData.id_usuario || userData.user_id || '1';
+  const [notificacion, setNotificacion] = useState(null);
+  const [usuario, setUsuario] = useState(null);
+  const mensajesEndRef = useRef(null);
 
   useEffect(() => {
-    if (!hasInitialized.current) {
-      hasInitialized.current = true;
-      checkRasaConnection();
-      addMessage('bot', '¡Hola! 👋 Soy tu asistente de apoyo emocional. Estoy aquí para escucharte. ¿Cómo te sientes hoy?');
-    }
+    const usuarioData = getCurrentUser();  // ✅ Usar función centralizada
+    setUsuario(usuarioData);
+    cargarHistorial();
   }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
-
-  const checkRasaConnection = async () => {
-    try {
-      const response = await fetch('http://localhost:5006/', {
-        method: 'GET'
-      });
-      
-      if (response.ok) {
-        setIsConnected(true);
-        setConnectionError('');
-      } else {
-        throw new Error('Servidor no disponible');
-      }
-    } catch (error) {
-      console.error('Error conectando con Rasa:', error);
-      setIsConnected(false);
-      setConnectionError('No se pudo conectar con el servidor. Asegúrate de que Rasa esté corriendo en el puerto 5006.');
-    }
-  };
+  }, [mensajes]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    mensajesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const addMessage = (role, content, emotion = null) => {
-    const newMessage = {
-      id: `${Date.now()}-${Math.random()}`,
-      role,
-      content,
-      emotion,
-      timestamp: new Date().toISOString()
-    };
-    
-    setMessages(prev => {
-      const isDuplicate = prev.some(msg => 
-        msg.content === content && 
-        msg.role === role &&
-        Date.now() - new Date(msg.timestamp).getTime() < 1000
-      );
+  const cargarHistorial = async () => {
+    try {
+      const response = await api.get('/historial');  // ✅ API centralizada
       
-      if (isDuplicate) {
-        console.log('⚠️ Mensaje duplicado detectado, ignorando:', content.substring(0, 50));
-        return prev;
+      if (response.historial && response.historial.length > 0) {
+        const historialFormateado = response.historial.map(msg => ({
+          texto: msg.mensaje,
+          esBot: msg.es_bot,
+          timestamp: msg.timestamp,
+          emocion: msg.emocion_detectada
+        }));
+        setMensajes(historialFormateado);
       }
-      
-      return [...prev, newMessage];
-    });
+    } catch (error) {
+      console.error('Error cargando historial:', error);
+      // No mostrar error si no hay historial
+    }
   };
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || loading) return;
+  const mostrarNotificacion = (tipo, titulo, descripcion) => {
+    setNotificacion({ tipo, titulo, descripcion });
+    setTimeout(() => setNotificacion(null), 5000);
+  };
 
-    const userMessageText = inputMessage.trim();
-    setInputMessage('');
+  const enviarMensaje = async (e) => {
+    e.preventDefault();
     
-    addMessage('user', userMessageText);
-    setLoading(true);
+    if (!mensaje.trim()) return;
 
     try {
-      const response = await fetch(RASA_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sender: `paciente_${userId}`,
-          message: userMessageText
-        })
+      const nuevoMensaje = {
+        texto: mensaje,
+        esBot: false,
+        timestamp: new Date().toISOString()
+      };
+      
+      setMensajes(prev => [...prev, nuevoMensaje]);
+      setMensaje('');
+      setLoading(true);
+
+      // ✅ Usar API centralizada
+      const response = await api.post('/chat', {
+        mensaje: mensaje
       });
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const respuestaBot = {
+        texto: response.respuesta,
+        esBot: true,
+        timestamp: response.timestamp,
+        emocion: response.emocion_detectada
+      };
       
-      console.log('📥 Respuesta de Rasa:', data);
-
-      if (data && data.length > 0) {
-        const respuestasTexto = data
-          .filter(r => r.text)
-          .map(r => r.text);
-        
-        if (respuestasTexto.length > 0) {
-          const respuestaCombinada = respuestasTexto.join('\n\n');
-          addMessage('bot', respuestaCombinada);
-        }
-      } else {
-        addMessage('bot', 'Disculpa, no pude procesar tu mensaje. ¿Puedes intentar reformularlo?');
-      }
+      setMensajes(prev => [...prev, respuestaBot]);
+      setLoading(false);
       
     } catch (error) {
-      console.error('❌ Error enviando mensaje:', error);
-      setIsConnected(false);
-      addMessage('bot', '⚠️ Hubo un error al comunicarme con el servidor. Por favor, verifica que Rasa esté corriendo.');
-    } finally {
+      console.error('Error enviando mensaje:', error);
       setLoading(false);
+      
+      const mensajeError = {
+        texto: 'Lo siento, el servicio de chatbot no está disponible en este momento. Por favor, intenta más tarde.',
+        esBot: true,
+        timestamp: new Date().toISOString()
+      };
+      setMensajes(prev => [...prev, mensajeError]);
+      
+      mostrarNotificacion('error', 'Error', 'No se pudo conectar con el chatbot');
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
+  const limpiarHistorial = async () => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar todo el historial de conversación?')) {
+      return;
+    }
+
+    try {
+      // ✅ Usar API centralizada
+      await api.delete('/historial');
+      
+      setMensajes([]);
+      mostrarNotificacion('exito', 'Historial Eliminado', 'Tu historial de conversación ha sido eliminado');
+    } catch (error) {
+      console.error('Error limpiando historial:', error);
+      mostrarNotificacion('error', 'Error', 'No se pudo eliminar el historial');
     }
   };
 
-  const retryConnection = () => {
-    setConnectionError('');
-    checkRasaConnection();
+  const obtenerEmojiEmocion = (emocion) => {
+    const emociones = {
+      'tristeza': '😢',
+      'alegria': '😊',
+      'alegría': '😊',
+      'amor': '❤️',
+      'enojo': '😠',
+      'miedo': '😰',
+      'sorpresa': '😲',
+      'ansiedad': '😰',
+      'neutral': '😐'
+    };
+    return emociones[emocion?.toLowerCase()] || null;
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-100px)] bg-gradient-to-br from-emerald-50 via-blue-50 to-purple-50 rounded-xl shadow-lg">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-emerald-600 to-blue-600 text-white p-6 rounded-t-xl shadow-md">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-              <Bot className="w-7 h-7" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Chat de Apoyo Emocional</h2>
-              <div className="flex items-center space-x-2">
-                {isConnected ? (
-                  <>
-                    <div className="w-2 h-2 bg-green-300 rounded-full animate-pulse"></div>
-                    <p className="text-emerald-100 text-sm">Conectado</p>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-2 h-2 bg-red-300 rounded-full"></div>
-                    <p className="text-red-100 text-sm">Desconectado</p>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => setCurrentView('dashboard')}
-            className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all"
-          >
-            ← Volver
-          </button>
-        </div>
-      </div>
-
-      {/* Connection Error Alert */}
-      {!isConnected && connectionError && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 m-4 rounded-lg">
-          <div className="flex items-start">
-            <AlertCircle className="w-5 h-5 text-yellow-600 mr-3 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h4 className="text-sm font-semibold text-yellow-800 mb-1">
-                Problema de Conexión
-              </h4>
-              <p className="text-sm text-yellow-700 mb-3">
-                {connectionError}
-              </p>
-              <button
-                onClick={retryConnection}
-                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all text-sm font-medium"
-              >
-                🔄 Reintentar Conexión
-              </button>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-8 flex items-center justify-center">
+      {notificacion && (
+        <Notificacion
+          tipo={notificacion.tipo}
+          titulo={notificacion.titulo}
+          descripcion={notificacion.descripcion}
+          onClose={() => setNotificacion(null)}
+        />
       )}
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
-        {messages.length === 0 && (
-          <div className="text-center text-gray-500 mt-20">
-            <Bot className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p>Inicia una conversación...</p>
-          </div>
-        )}
-
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`flex items-start space-x-2 max-w-[80%] ${
-                message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-              }`}
-            >
-              <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  message.role === 'user'
-                    ? 'bg-gradient-to-br from-emerald-500 to-emerald-600'
-                    : 'bg-gradient-to-br from-blue-500 to-purple-600'
-                }`}
-              >
-                {message.role === 'user' ? (
-                  <User className="w-6 h-6 text-white" />
-                ) : (
-                  <Bot className="w-6 h-6 text-white" />
-                )}
-              </div>
-
-              <div
-                className={`rounded-2xl px-5 py-3 shadow-md ${
-                  message.role === 'user'
-                    ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white'
-                    : 'bg-white text-gray-800 border border-gray-200'
-                }`}
-              >
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {message.content}
-                </p>
-                
-                {message.emotion && message.role === 'assistant' && (
-                  <div className="mt-2 pt-2 border-t border-gray-200">
-                    <span className="text-xs text-gray-600">
-                      Emoción detectada: <strong>{message.emotion}</strong>
-                    </span>
-                  </div>
-                )}
-
-                <p className={`text-xs mt-2 ${
-                  message.role === 'user' ? 'text-emerald-100' : 'text-gray-400'
-                }`}>
-                  {new Date(message.timestamp).toLocaleTimeString('es-ES', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </p>
-              </div>
+      <div className="w-full max-w-4xl h-[85vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">💬 Chatbot de Apoyo Emocional</h2>
+              <p className="text-indigo-100">Habla libremente, estoy aquí para escucharte</p>
             </div>
+            {mensajes.length > 0 && (
+              <button
+                onClick={limpiarHistorial}
+                className="px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 border-2 border-white rounded-lg font-semibold transition-all"
+              >
+                🗑️ Limpiar
+              </button>
+            )}
           </div>
-        ))}
-
-        {loading && (
-          <div className="flex justify-start">
-            <div className="flex items-start space-x-2 max-w-[80%]">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <Bot className="w-6 h-6 text-white" />
-              </div>
-              <div className="bg-white rounded-2xl px-5 py-3 shadow-md border border-gray-200">
-                <div className="flex space-x-2">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input */}
-      <div className="p-4 bg-white border-t border-gray-200 rounded-b-xl">
-        <div className="flex items-end space-x-3">
-          <textarea
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={isConnected ? "Escribe cómo te sientes... 💭" : "Conectando al servidor..."}
-            disabled={loading || !isConnected}
-            rows="2"
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={loading || !inputMessage.trim() || !isConnected}
-            className="bg-gradient-to-r from-emerald-600 to-blue-600 text-white p-4 rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Send className="w-5 h-5" />
-          </button>
         </div>
-        <div className="flex items-center justify-between mt-2">
-          <p className="text-xs text-gray-500">
-            💡 Presiona Enter para enviar, Shift+Enter para nueva línea
-          </p>
-          {isConnected && (
-            <div className="flex items-center space-x-1 text-xs text-green-600">
-              <CheckCircle className="w-3 h-3" />
-              <span>Conectado a Rasa</span>
+
+        {/* Mensajes */}
+        <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+          {mensajes.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4 animate-bounce">🤖</div>
+              <h3 className="text-2xl font-bold text-indigo-600 mb-4">
+                ¡Hola, {usuario?.nombre_completo || 'amigo'}!
+              </h3>
+              <p className="text-gray-700 text-lg mb-2">Soy tu asistente de apoyo emocional.</p>
+              <p className="text-gray-600 mb-6">
+                Puedes contarme cómo te sientes, y yo estaré aquí para escucharte y apoyarte.
+              </p>
+              <div className="bg-white rounded-xl p-6 max-w-md mx-auto shadow-md">
+                <p className="font-semibold text-indigo-600 mb-3">Puedes decirme cosas como:</p>
+                <ul className="text-left space-y-2">
+                  {['Me siento triste hoy', 'Estoy muy feliz', 'Tengo ansiedad', 'Necesito hablar'].map((texto, i) => (
+                    <li key={i} className="flex items-center space-x-2 text-gray-700">
+                      <span className="text-xl">💭</span>
+                      <span>"{texto}"</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {mensajes.map((msg, index) => (
+                <div
+                  key={index}
+                  className={`flex gap-3 animate-fadeIn ${msg.esBot ? 'justify-start' : 'justify-end'}`}
+                >
+                  {msg.esBot && (
+                    <div className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-2xl flex-shrink-0">
+                      🤖
+                    </div>
+                  )}
+                  
+                  <div className={`max-w-[70%] ${!msg.esBot ? 'order-1' : ''}`}>
+                    <div
+                      className={`p-4 rounded-2xl shadow-md ${
+                        msg.esBot
+                          ? 'bg-white text-gray-800 rounded-tl-none'
+                          : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-tr-none'
+                      }`}
+                    >
+                      <p className="leading-relaxed">{msg.texto}</p>
+                      {msg.emocion && obtenerEmojiEmocion(msg.emocion) && (
+                        <span
+                          className="inline-block ml-2 text-xl"
+                          title={`Emoción detectada: ${msg.emocion}`}
+                        >
+                          {obtenerEmojiEmocion(msg.emocion)}
+                        </span>
+                      )}
+                    </div>
+                    <div className={`text-xs text-gray-500 mt-1 px-2 ${!msg.esBot ? 'text-right' : ''}`}>
+                      {new Date(msg.timestamp).toLocaleTimeString('es-ES', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </div>
+                  </div>
+                  
+                  {!msg.esBot && (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 shadow-md flex items-center justify-center text-2xl flex-shrink-0">
+                      👤
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              {loading && (
+                <div className="flex gap-3 justify-start animate-fadeIn">
+                  <div className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-2xl">
+                    🤖
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-md">
+                    <div className="flex gap-1">
+                      {[0, 1, 2].map(i => (
+                        <div
+                          key={i}
+                          className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"
+                          style={{ animationDelay: `${i * 0.15}s` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div ref={mensajesEndRef} />
             </div>
           )}
         </div>
+
+        {/* Input */}
+        <form onSubmit={enviarMensaje} className="p-6 bg-white border-t-2 border-gray-100">
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={mensaje}
+              onChange={(e) => setMensaje(e.target.value)}
+              placeholder="Escribe tu mensaje aquí..."
+              disabled={loading}
+              className="flex-1 px-5 py-3 border-2 border-gray-200 rounded-full focus:outline-none focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+            />
+            <button
+              type="submit"
+              disabled={loading || !mensaje.trim()}
+              className="w-14 h-14 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-2xl hover:from-indigo-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-110 shadow-lg flex items-center justify-center"
+            >
+              {loading ? '⏳' : '📤'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
