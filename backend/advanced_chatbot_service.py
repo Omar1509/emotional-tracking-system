@@ -334,7 +334,7 @@ MENSAJE ACTUAL DEL USUARIO:
 
 INSTRUCCIONES PARA TU RESPUESTA:
 1. **Valida la emoción**: Reconoce y normaliza lo que siente
-2. **Sé empático y cálido**: Usa emojis moderadamente (���, ���, ���) para transmitir calidez
+2. **Sé empático y cálido**: Usa emojis moderadamente (���, ���, ���) para transmitir calidez
 3. **Haz preguntas reflexivas**: Ayuda al usuario a explorar sus emociones
 4. **Ofrece perspectiva terapéutica**: Si es relevante, sugiere técnicas o insights
 5. **Mantén el contexto**: Referencia información de mensajes previos si es relevante
@@ -394,48 +394,48 @@ RESPONDE DE FORMA NATURAL, EMPÁTICA Y TERAPÉUTICAMENTE ÚTIL:"""
                 "⚠️ Lo que me cuentas me preocupa mucho. Lo que sientes es muy intenso y creo que "
                 "necesitas ayuda profesional urgente. Por favor, contacta a tu psicólogo AHORA, "
                 "llama a un familiar de confianza, o marca al 911. También está la línea de prevención "
-                "del suicidio (1-800-273-8255). Tu vida importa ��� ¿Hay alguien cerca que pueda ayudarte?"
+                "del suicidio (1-800-273-8255). Tu vida importa ��� ¿Hay alguien cerca que pueda ayudarte?"
             )
         
         # Respuestas por emoción dominante
         responses = {
             'tristeza': [
-                f"Puedo sentir la tristeza en tus palabras ��� {'Es muy intenso, lo sé' if intensity > 7 else 'Es completamente válido sentirse así'}. "
+                f"Puedo sentir la tristeza en tus palabras ��� {'Es muy intenso, lo sé' if intensity > 7 else 'Es completamente válido sentirse así'}. "
                 f"¿Hay algo específico que esté pesando en tu corazón ahora mismo?",
                 
-                f"La tristeza puede sentirse muy pesada ��� {'Parece que ha sido especialmente difícil últimamente' if intensity > 7 else 'A veces necesitamos permitirnos sentirla'}. "
+                f"La tristeza puede sentirse muy pesada ��� {'Parece que ha sido especialmente difícil últimamente' if intensity > 7 else 'A veces necesitamos permitirnos sentirla'}. "
                 f"¿Desde cuándo te sientes así?",
             ],
             'ansiedad': [
-                f"La ansiedad puede hacer que todo se sienta abrumador ��� {'Noto que es muy intensa para ti ahora' if intensity > 7 else 'Es una respuesta natural de tu cuerpo'}. "
+                f"La ansiedad puede hacer que todo se sienta abrumador ��� {'Noto que es muy intensa para ti ahora' if intensity > 7 else 'Es una respuesta natural de tu cuerpo'}. "
                 f"¿Puedes identificar qué pensamientos se repiten en tu mente?",
                 
-                f"Entiendo perfectamente esa sensación de ansiedad ��� {'Es como si no pudieras detener tu mente, ¿verdad?' if intensity > 7 else 'Es agotador cuando persiste'}. "
+                f"Entiendo perfectamente esa sensación de ansiedad ��� {'Es como si no pudieras detener tu mente, ¿verdad?' if intensity > 7 else 'Es agotador cuando persiste'}. "
                 f"¿Has notado si hay momentos donde se intensifica más?",
             ],
             'enojo': [
-                f"Puedo percibir tu frustración y enojo {'y es muy intenso' if intensity > 7 else ''} ��� "
+                f"Puedo percibir tu frustración y enojo {'y es muy intenso' if intensity > 7 else ''} ��� "
                 f"Esos sentimientos son válidos. ¿Qué es lo que más te está molestando en este momento?",
                 
-                f"El enojo es una emoción poderosa {'y veo que está muy presente para ti ahora' if intensity > 7 else ''} ��� "
+                f"El enojo es una emoción poderosa {'y veo que está muy presente para ti ahora' if intensity > 7 else ''} ��� "
                 f"A veces señala que algo importante no está bien. ¿Hay una situación específica detrás de esto?",
             ],
             'miedo': [
-                f"El miedo puede ser muy paralizante ��� {'Especialmente cuando es tan intenso como lo que describes' if intensity > 7 else 'Es una emoción muy primitiva'}. "
+                f"El miedo puede ser muy paralizante ��� {'Especialmente cuando es tan intenso como lo que describes' if intensity > 7 else 'Es una emoción muy primitiva'}. "
                 f"¿Qué es lo que más te atemoriza ahora mismo?",
                 
-                f"Puedo sentir tu temor {'y lo fuerte que es' if intensity > 7 else ''} ��� "
+                f"Puedo sentir tu temor {'y lo fuerte que es' if intensity > 7 else ''} ��� "
                 f"Es valiente de tu parte reconocerlo. ¿Este miedo es algo nuevo o ha estado contigo un tiempo?",
             ],
             'alegría': [
-                f"¡Qué bueno escuchar esa alegría en tu mensaje! ��� {'Es maravilloso que estés sintiendo algo tan positivo' if intensity > 7 else 'Me alegra que estés teniendo un buen momento'}. "
+                f"¡Qué bueno escuchar esa alegría en tu mensaje! ��� {'Es maravilloso que estés sintiendo algo tan positivo' if intensity > 7 else 'Me alegra que estés teniendo un buen momento'}. "
                 f"¿Qué ha contribuido a que te sientas así?",
             ],
         }
         
         # Seleccionar respuesta apropiada
         emotion_responses = responses.get(emotion, [
-            f"Gracias por compartir esto conmigo ��� {'Puedo sentir la intensidad de lo que estás viviendo' if intensity > 7 else 'Estoy aquí para escucharte'}. "
+            f"Gracias por compartir esto conmigo ��� {'Puedo sentir la intensidad de lo que estás viviendo' if intensity > 7 else 'Estoy aquí para escucharte'}. "
             f"¿Puedes contarme un poco más sobre lo que estás experimentando?"
         ])
         
@@ -444,11 +444,11 @@ RESPONDE DE FORMA NATURAL, EMPÁTICA Y TERAPÉUTICAMENTE ÚTIL:"""
         
         # Sugerencias basadas en necesidades
         if 'manejo_ansiedad' in needs and intensity > 6:
-            response += " ¿Te gustaría que te guíe en una técnica rápida de respiración que puede ayudarte ahora mismo? ���️"
+            response += " ¿Te gustaría que te guíe en una técnica rápida de respiración que puede ayudarte ahora mismo? ���️"
         elif 'regulacion_emocional' in needs and intensity > 7:
             response += " Cuando las emociones son tan intensas, a veces técnicas de grounding pueden ayudar. ¿Quieres intentarlo?"
         elif 'trabajo_autoestima' in needs:
-            response += " Recuerda que tus sentimientos no definen quién eres como persona ���"
+            response += " Recuerda que tus sentimientos no definen quién eres como persona ���"
         
         return response
     
@@ -456,16 +456,16 @@ RESPONDE DE FORMA NATURAL, EMPÁTICA Y TERAPÉUTICAMENTE ÚTIL:"""
         """Carga respuestas de fallback estructuradas"""
         return {
             'greeting': [
-                "Hola ��� Me alegra verte por aquí. ¿Cómo has estado? ¿Qué está pasando en tu mundo hoy?",
-                "¡Hola! ��� Gracias por escribirme. Estoy aquí para ti. ¿Cómo te sientes en este momento?",
+                "Hola ��� Me alegra verte por aquí. ¿Cómo has estado? ¿Qué está pasando en tu mundo hoy?",
+                "¡Hola! ��� Gracias por escribirme. Estoy aquí para ti. ¿Cómo te sientes en este momento?",
             ],
             'goodbye': [
-                "Cuídate mucho ��� Ha sido valioso conversar contigo. Recuerda que puedes volver cuando lo necesites.",
-                "Gracias por compartir conmigo hoy ��� Que tengas un buen día y recuerda ser amable contigo mismo/a.",
+                "Cuídate mucho ��� Ha sido valioso conversar contigo. Recuerda que puedes volver cuando lo necesites.",
+                "Gracias por compartir conmigo hoy ��� Que tengas un buen día y recuerda ser amable contigo mismo/a.",
             ],
             'gratitude': [
-                "No tienes nada que agradecer ��� Es importante para mí poder acompañarte. Siempre estaré aquí.",
-                "Gracias a ti por confiar en mí y abrirte ��� Eso requiere mucha valentía.",
+                "No tienes nada que agradecer ��� Es importante para mí poder acompañarte. Siempre estaré aquí.",
+                "Gracias a ti por confiar en mí y abrirte ��� Eso requiere mucha valentía.",
             ]
         }
 
@@ -526,7 +526,7 @@ class AdvancedChatbotService:
     def _send_crisis_alert(self, user_id: int, message: str, analysis: Dict):
         """Envía alerta de crisis al equipo terapéutico"""
         # TODO: Integrar con sistema de notificaciones
-        print(f"��� ALERTA DE CRISIS - Usuario {user_id}")
+        print(f"��� ALERTA DE CRISIS - Usuario {user_id}")
         print(f"Mensaje: {message}")
         print(f"Riesgo: {analysis['risk_assessment']}")
     

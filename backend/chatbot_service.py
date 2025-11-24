@@ -4,7 +4,7 @@ import json
 from nlp_service import analyze_text
 
 class ChatbotService:
-    def __init__(self, rasa_url: str = "http://localhost:5005"):
+    def __init__(self, rasa_url: str = "http://localhost:5006"):
         self.rasa_url = rasa_url
         self.webhook_url = f"{rasa_url}/webhooks/rest/webhook"
         
