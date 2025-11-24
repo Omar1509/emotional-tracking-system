@@ -1,13 +1,12 @@
 // frontend/src/components/Paciente/DashboardPaciente.js
-// ✅ SIN CSS EXTERNO - SOLO TAILWIND
+// ✅ VERSIÓN ACTUALIZADA - SIN REGISTRO MANUAL DE EMOCIONES
+// Las emociones se calculan automáticamente desde el chat
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { api } from '../../config/api';
 import Notificacion from '../Shared/Notificacion';
 
-const DashboardPaciente = () => {
-  const navigate = useNavigate();
+const DashboardPaciente = ({ setCurrentView }) => {
   const [usuario, setUsuario] = useState(null);
   const [proximaCita, setProximaCita] = useState(null);
   const [ejerciciosPendientes, setEjerciciosPendientes] = useState([]);
@@ -21,22 +20,13 @@ const DashboardPaciente = () => {
 
   const cargarDatosDashboard = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const usuarioData = JSON.parse(localStorage.getItem('usuario'));
+      const usuarioData = JSON.parse(localStorage.getItem('user'));
       setUsuario(usuarioData);
-
-      const config = {
-        headers: { Authorization: `Bearer ${token}` }
-      };
 
       // Cargar próxima cita
       try {
-        const citasResponse = await axios.get(
-          `http://localhost:8000/api/citas/paciente/mis-citas`,
-          config
-        );
-
-        const citasPendientes = citasResponse.data.citas.filter(
+        const citasResponse = await api.get('/citas/paciente/mis-citas');
+        const citasPendientes = citasResponse.citas.filter(
           cita => cita.estado === 'programada' && !cita.ya_paso
         );
         if (citasPendientes.length > 0) {
@@ -48,12 +38,8 @@ const DashboardPaciente = () => {
 
       // Cargar ejercicios pendientes
       try {
-        const ejerciciosResponse = await axios.get(
-          `http://localhost:8000/api/ejercicios/mis-ejercicios`,
-          config
-        );
-        
-        const pendientes = ejerciciosResponse.data.ejercicios_asignados.filter(
+        const ejerciciosResponse = await api.get('/ejercicios/mis-ejercicios');
+        const pendientes = ejerciciosResponse.ejercicios_asignados.filter(
           ej => ej.esta_activo && ej.estado !== 'completado'
         );
         setEjerciciosPendientes(pendientes.slice(0, 3));
@@ -61,15 +47,14 @@ const DashboardPaciente = () => {
         console.error('Error cargando ejercicios:', error);
       }
 
-      // Cargar emoción del día
+      // ✅ Cargar emoción del día (calculada automáticamente desde el chat)
       try {
-        const emocionResponse = await axios.get(
-          `http://localhost:8000/api/emociones-diarias/emociones-diarias/${usuarioData.id_usuario}?dias=1`,
-          config
+        const emocionResponse = await api.get(
+          `/emociones-diarias/emociones-diarias/${usuarioData.id_usuario}?dias=1`
         );
 
-        if (emocionResponse.data.emociones_diarias.length > 0) {
-          setEmocionHoy(emocionResponse.data.emociones_diarias[0]);
+        if (emocionResponse.emociones_diarias.length > 0) {
+          setEmocionHoy(emocionResponse.emociones_diarias[0]);
         }
       } catch (error) {
         console.error('Error cargando emoción:', error);
@@ -100,7 +85,7 @@ const DashboardPaciente = () => {
       'ansiedad': '😰',
       'neutral': '😐'
     };
-    return emociones[emocion?.toLowerCase()] || '😐';
+    return emociones[emocion?.toLowerCase()] || '😊';
   };
 
   const obtenerColorEmocion = (emocion) => {
@@ -122,7 +107,7 @@ const DashboardPaciente = () => {
     const iconos = {
       'respiracion': '🌬️',
       'meditacion': '🧘',
-      'escritura': '✏️',
+      'escritura': '✍️',
       'actividad_fisica': '🏃',
       'mindfulness': '🌸'
     };
@@ -175,19 +160,19 @@ const DashboardPaciente = () => {
                   {emocionHoy.emocion_dominante}
                 </h2>
                 <p className="text-sm text-gray-600 mb-4">
-                  Promedio calculado automáticamente desde tus conversaciones
+                  📱 Detectado automáticamente desde tus conversaciones
                 </p>
                 <div className="inline-flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full text-sm text-gray-700">
-                  💬 {emocionHoy.total_interacciones} interacciones
+                  💬 {emocionHoy.total_interacciones} interacciones hoy
                 </div>
               </div>
             ) : (
               <div className="text-center py-8">
                 <p className="text-gray-600 mb-4">
-                  💬 Habla con nuestro chatbot para registrar tu estado emocional
+                  💬 Habla con nuestro chatbot para que detectemos tu estado emocional
                 </p>
                 <button
-                  onClick={() => navigate('/paciente/chat')}
+                  onClick={() => setCurrentView('chat')}
                   className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 font-semibold transition-all"
                 >
                   Ir al Chatbot
@@ -217,7 +202,7 @@ const DashboardPaciente = () => {
                     ⏰ {proximaCita.hora_inicio?.substring(0, 5)}
                   </p>
                   <p className="text-gray-700 font-medium mb-1">
-                    👨‍⚕️ {proximaCita.psicologo.nombre}
+                    👨‍⚕️ {proximaCita.psicologo?.nombre || 'Psicólogo'}
                   </p>
                   <p className="text-gray-600 text-sm">
                     {proximaCita.modalidad === 'virtual' ? '💻' : '🏥'} 
@@ -274,7 +259,7 @@ const DashboardPaciente = () => {
             
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => navigate('/paciente/chat')}
+                onClick={() => setCurrentView('chat')}
                 className="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-xl hover:from-indigo-600 hover:to-purple-600 transition-all hover:scale-105"
               >
                 <span className="text-3xl mb-2">💬</span>
@@ -282,12 +267,44 @@ const DashboardPaciente = () => {
               </button>
               
               <button
-                onClick={() => navigate('/paciente/historial')}
+                onClick={() => setCurrentView('citas')}
+                className="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all hover:scale-105"
+              >
+                <span className="text-3xl mb-2">📅</span>
+                <span className="font-semibold">Mis Citas</span>
+              </button>
+              
+              <button
+                onClick={() => setCurrentView('ejercicios')}
+                className="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all hover:scale-105"
+              >
+                <span className="text-3xl mb-2">🎯</span>
+                <span className="font-semibold">Ejercicios</span>
+              </button>
+              
+              <button
+                onClick={() => setCurrentView('historial')}
                 className="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-pink-500 to-red-500 text-white rounded-xl hover:from-pink-600 hover:to-red-600 transition-all hover:scale-105"
               >
                 <span className="text-3xl mb-2">📈</span>
                 <span className="font-semibold">Mi Historial</span>
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Información adicional */}
+        <div className="mt-8 bg-white bg-opacity-20 backdrop-blur-lg rounded-2xl p-6 text-white">
+          <div className="flex items-start space-x-4">
+            <div className="text-4xl">💡</div>
+            <div>
+              <h4 className="text-xl font-bold mb-2">¿Cómo funciona la detección automática de emociones?</h4>
+              <p className="text-indigo-100 leading-relaxed">
+                Cada vez que hablas con nuestro chatbot, nuestra inteligencia artificial analiza tus mensajes 
+                para detectar tu estado emocional. Al final del día (23:59), calculamos un promedio de todas 
+                tus emociones y lo mostramos aquí. Esto le permite a tu psicólogo hacer un seguimiento más 
+                preciso de tu bienestar emocional.
+              </p>
             </div>
           </div>
         </div>

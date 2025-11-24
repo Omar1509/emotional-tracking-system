@@ -1,353 +1,395 @@
+# backend/routers/citas.py
+# ✅ ROUTER COMPLETO DE CITAS PARA PSICÓLOGOS Y PACIENTES
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import date, time, datetime
-from typing import List, Optional
+from sqlalchemy import and_, or_
+from typing import Optional, List
+from datetime import datetime, date, time
 from pydantic import BaseModel
-import jwt
 
-from database import get_db
 import models
+from database import get_db
+from dependencies import get_current_user, get_current_psicologo, get_current_paciente
 
 router = APIRouter()
 
-SECRET_KEY = "tu-clave-secreta-cambiar-en-produccion"
-ALGORITHM = "HS256"
-
-from fastapi.security import OAuth2PasswordBearer
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="No se pudo validar las credenciales",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-    except jwt.PyJWTError:
-        raise credentials_exception
-    
-    user = db.query(models.Usuario).filter(models.Usuario.email == email).first()
-    if user is None:
-        raise credentials_exception
-    return user
-
-
-# ============= SCHEMAS =============
+# ==================== SCHEMAS ====================
 
 class CitaCreate(BaseModel):
     id_paciente: int
     fecha: date
     hora_inicio: time
     hora_fin: Optional[time] = None
-    duracion_minutos: int = 60
-    modalidad: str = "virtual"
-    url_videollamada: Optional[str] = None
+    modalidad: str = "virtual"  # virtual, presencial
     notas_previas: Optional[str] = None
-    objetivos: Optional[str] = None
-
+    url_videollamada: Optional[str] = None
 
 class CitaUpdate(BaseModel):
     fecha: Optional[date] = None
     hora_inicio: Optional[time] = None
     hora_fin: Optional[time] = None
-    estado: Optional[str] = None
-    notas_sesion: Optional[str] = None
-    tareas_asignadas: Optional[str] = None
     modalidad: Optional[str] = None
+    notas_previas: Optional[str] = None
     url_videollamada: Optional[str] = None
+    estado: Optional[str] = None
 
+class AsistenciaUpdate(BaseModel):
+    asistio: bool
 
-# ============= ENDPOINTS PARA PSICÓLOGOS =============
+# ==================== ENDPOINTS PSICÓLOGO ====================
 
-@router.post("/crear")
+@router.post("/", response_model=dict)
 async def crear_cita(
-    cita: CitaCreate,
-    current_user: models.Usuario = Depends(get_current_user),
+    cita_data: CitaCreate,
+    current_user: models.Usuario = Depends(get_current_psicologo),
     db: Session = Depends(get_db)
 ):
     """
-    Crear una nueva cita (solo psicólogos)
+    ✅ Crear nueva cita (solo psicólogos)
     """
-    if current_user.rol != models.UserRole.PSICOLOGO:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo psicólogos pueden crear citas"
+    try:
+        # Verificar que el paciente existe y está asignado a este psicólogo
+        asignacion = db.query(models.PacientePsicologo).filter(
+            models.PacientePsicologo.id_paciente == cita_data.id_paciente,
+            models.PacientePsicologo.id_psicologo == current_user.id_usuario,
+            models.PacientePsicologo.activo == True
+        ).first()
+
+        if not asignacion:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="El paciente no está asignado a este psicólogo"
+            )
+
+        # Crear cita
+        nueva_cita = models.Cita(
+            id_paciente=cita_data.id_paciente,
+            id_psicologo=current_user.id_usuario,
+            fecha=cita_data.fecha,
+            hora_inicio=cita_data.hora_inicio,
+            hora_fin=cita_data.hora_fin,
+            modalidad=cita_data.modalidad,
+            estado="programada",
+            notas_previas=cita_data.notas_previas,
+            url_videollamada=cita_data.url_videollamada
         )
-    
-    # Verificar que el paciente está asignado
-    asignacion = db.query(models.PacientePsicologo).filter(
-        models.PacientePsicologo.id_paciente == cita.id_paciente,
-        models.PacientePsicologo.id_psicologo == current_user.id_usuario,
-        models.PacientePsicologo.activo == True
-    ).first()
-    
-    if not asignacion:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Paciente no asignado"
-        )
-    
-    # Crear cita
-    nueva_cita = models.Cita(
-        id_paciente=cita.id_paciente,
-        id_psicologo=current_user.id_usuario,
-        fecha=cita.fecha,
-        hora_inicio=cita.hora_inicio,
-        hora_fin=cita.hora_fin,
-        duracion_minutos=cita.duracion_minutos,
-        modalidad=cita.modalidad,
-        url_videollamada=cita.url_videollamada,
-        notas_previas=cita.notas_previas,
-        objetivos=cita.objetivos,
-        estado=models.AppointmentStatus.PROGRAMADA
-    )
-    
-    db.add(nueva_cita)
-    db.commit()
-    db.refresh(nueva_cita)
-    
-    return {
-        "mensaje": "Cita creada exitosamente",
-        "notificacion": {
-            "tipo": "exito",
-            "titulo": "¡Cita Creada!",
-            "descripcion": f"Cita programada para el {cita.fecha.strftime('%d/%m/%Y')} a las {cita.hora_inicio.strftime('%H:%M')}"
-        },
-        "cita": {
-            "id_cita": nueva_cita.id_cita,
-            "fecha": str(nueva_cita.fecha),
-            "hora_inicio": str(nueva_cita.hora_inicio),
-            "modalidad": nueva_cita.modalidad,
-            "estado": nueva_cita.estado.value
+
+        db.add(nueva_cita)
+        db.commit()
+        db.refresh(nueva_cita)
+
+        return {
+            "mensaje": "Cita creada exitosamente",
+            "id_cita": nueva_cita.id_cita
         }
-    }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creando cita: {str(e)}"
+        )
 
 
-@router.get("/psicologo/mis-citas")
+@router.get("/psicologo/mis-citas", response_model=dict)
 async def obtener_citas_psicologo(
-    current_user: models.Usuario = Depends(get_current_user),
+    current_user: models.Usuario = Depends(get_current_psicologo),
     db: Session = Depends(get_db)
 ):
     """
-    Obtener todas las citas del psicólogo
+    ✅ Obtener todas las citas del psicólogo
     """
-    if current_user.rol != models.UserRole.PSICOLOGO:
+    try:
+        citas = db.query(models.Cita).filter(
+            models.Cita.id_psicologo == current_user.id_usuario
+        ).order_by(models.Cita.fecha.desc(), models.Cita.hora_inicio.desc()).all()
+
+        citas_dict = []
+        for cita in citas:
+            paciente = db.query(models.Usuario).filter(
+                models.Usuario.id_usuario == cita.id_paciente
+            ).first()
+
+            citas_dict.append({
+                "id_cita": cita.id_cita,
+                "id_paciente": cita.id_paciente,
+                "paciente": {
+                    "nombre": paciente.nombre if paciente else None,
+                    "apellido": paciente.apellido if paciente else None
+                },
+                "fecha": cita.fecha.isoformat(),
+                "hora_inicio": cita.hora_inicio.isoformat() if cita.hora_inicio else None,
+                "hora_fin": cita.hora_fin.isoformat() if cita.hora_fin else None,
+                "modalidad": cita.modalidad,
+                "estado": cita.estado,
+                "notas_previas": cita.notas_previas,
+                "url_videollamada": cita.url_videollamada,
+                "asistio": cita.asistio,
+                "fecha_creacion": cita.fecha_creacion.isoformat()
+            })
+
+        return {
+            "citas": citas_dict,
+            "total": len(citas_dict)
+        }
+
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo psicólogos"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo citas: {str(e)}"
         )
-    
-    citas = db.query(models.Cita).filter(
-        models.Cita.id_psicologo == current_user.id_usuario
-    ).order_by(models.Cita.fecha.desc(), models.Cita.hora_inicio.desc()).all()
-    
-    citas_formateadas = []
-    for cita in citas:
-        paciente = db.query(models.Usuario).filter(
-            models.Usuario.id_usuario == cita.id_paciente
-        ).first()
-        
-        citas_formateadas.append({
-            "id_cita": cita.id_cita,
-            "fecha": str(cita.fecha),
-            "hora_inicio": str(cita.hora_inicio),
-            "hora_fin": str(cita.hora_fin) if cita.hora_fin else None,
-            "duracion_minutos": cita.duracion_minutos,
-            "modalidad": cita.modalidad,
-            "estado": cita.estado.value,
-            "paciente": {
-                "id": cita.id_paciente,
-                "nombre_completo": f"{paciente.nombre} {paciente.apellido}" if paciente else "Desconocido"
-            },
-            "notas_previas": cita.notas_previas,
-            "notas_sesion": cita.notas_sesion,
-            "objetivos": cita.objetivos
-        })
-    
-    return {
-        "total_citas": len(citas_formateadas),
-        "citas": citas_formateadas
-    }
 
 
-# ============= ENDPOINTS PARA PACIENTES =============
-
-@router.get("/paciente/mis-citas")
-async def obtener_citas_paciente(
-    current_user: models.Usuario = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Obtener todas las citas del paciente con iconos de asistencia
-    """
-    if current_user.rol != models.UserRole.PACIENTE:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo pacientes"
-        )
-    
-    citas = db.query(models.Cita).filter(
-        models.Cita.id_paciente == current_user.id_usuario
-    ).order_by(models.Cita.fecha.desc()).all()
-    
-    citas_formateadas = []
-    fecha_actual = datetime.now()
-    
-    for cita in citas:
-        psicologo = db.query(models.Usuario).filter(
-            models.Usuario.id_usuario == cita.id_psicologo
-        ).first()
-        
-        # Determinar si la cita ya pasó
-        fecha_hora_cita = datetime.combine(cita.fecha, cita.hora_inicio)
-        cita_pasada = fecha_hora_cita < fecha_actual
-        
-        # Asignar iconos según estado
-        if cita.estado == models.AppointmentStatus.PROGRAMADA:
-            icono_asistencia = "⏳"
-            texto_asistencia = "Pendiente"
-        elif cita.estado == models.AppointmentStatus.COMPLETADA:
-            icono_asistencia = "✓"
-            texto_asistencia = "Asistió"
-        elif cita.estado == models.AppointmentStatus.NO_ASISTIO:
-            icono_asistencia = "✗"
-            texto_asistencia = "No asistió"
-        elif cita.estado == models.AppointmentStatus.CANCELADA:
-            icono_asistencia = "⊗"
-            texto_asistencia = "Cancelada"
-        else:
-            icono_asistencia = "?"
-            texto_asistencia = "Sin información"
-        
-        citas_formateadas.append({
-            "id_cita": cita.id_cita,
-            "fecha": str(cita.fecha),
-            "hora_inicio": str(cita.hora_inicio),
-            "hora_fin": str(cita.hora_fin) if cita.hora_fin else None,
-            "duracion_minutos": cita.duracion_minutos,
-            "modalidad": cita.modalidad,
-            "url_videollamada": cita.url_videollamada,
-            "estado": cita.estado.value,
-            "psicologo": {
-                "nombre": f"Dr(a). {psicologo.nombre} {psicologo.apellido}" if psicologo else "Desconocido",
-                "telefono": psicologo.telefono if psicologo else None
-            },
-            "notas_sesion": cita.notas_sesion,
-            "tareas_asignadas": cita.tareas_asignadas,
-            "icono_asistencia": icono_asistencia,
-            "texto_asistencia": texto_asistencia,
-            "ya_paso": cita_pasada
-        })
-    
-    return {
-        "total_citas": len(citas_formateadas),
-        "citas": citas_formateadas
-    }
-
-
-@router.put("/{id_cita}")
+@router.put("/{id_cita}", response_model=dict)
 async def actualizar_cita(
     id_cita: int,
-    cita_update: CitaUpdate,
-    current_user: models.Usuario = Depends(get_current_user),
+    cita_data: CitaUpdate,
+    current_user: models.Usuario = Depends(get_current_psicologo),
     db: Session = Depends(get_db)
 ):
     """
-    Actualizar una cita existente
+    ✅ Actualizar cita existente (solo psicólogos)
     """
-    cita = db.query(models.Cita).filter(
-        models.Cita.id_cita == id_cita
-    ).first()
-    
-    if not cita:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cita no encontrada"
-        )
-    
-    # Verificar permisos
-    if current_user.rol == models.UserRole.PSICOLOGO:
-        if cita.id_psicologo != current_user.id_usuario:
+    try:
+        cita = db.query(models.Cita).filter(
+            models.Cita.id_cita == id_cita,
+            models.Cita.id_psicologo == current_user.id_usuario
+        ).first()
+
+        if not cita:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tienes permisos para modificar esta cita"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cita no encontrada"
             )
-    elif current_user.rol == models.UserRole.PACIENTE:
-        if cita.id_paciente != current_user.id_usuario:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tienes permisos para modificar esta cita"
-            )
-    
-    # Actualizar campos
-    if cita_update.fecha is not None:
-        cita.fecha = cita_update.fecha
-    if cita_update.hora_inicio is not None:
-        cita.hora_inicio = cita_update.hora_inicio
-    if cita_update.hora_fin is not None:
-        cita.hora_fin = cita_update.hora_fin
-    if cita_update.estado is not None:
-        cita.estado = models.AppointmentStatus(cita_update.estado)
-    if cita_update.notas_sesion is not None:
-        cita.notas_sesion = cita_update.notas_sesion
-    if cita_update.tareas_asignadas is not None:
-        cita.tareas_asignadas = cita_update.tareas_asignadas
-    if cita_update.modalidad is not None:
-        cita.modalidad = cita_update.modalidad
-    if cita_update.url_videollamada is not None:
-        cita.url_videollamada = cita_update.url_videollamada
-    
-    cita.fecha_modificacion = datetime.utcnow()
-    
-    db.commit()
-    db.refresh(cita)
-    
-    return {
-        "mensaje": "Cita actualizada exitosamente",
-        "cita": {
-            "id_cita": cita.id_cita,
-            "fecha": str(cita.fecha),
-            "hora_inicio": str(cita.hora_inicio),
-            "estado": cita.estado.value
+
+        # Actualizar campos
+        if cita_data.fecha is not None:
+            cita.fecha = cita_data.fecha
+        if cita_data.hora_inicio is not None:
+            cita.hora_inicio = cita_data.hora_inicio
+        if cita_data.hora_fin is not None:
+            cita.hora_fin = cita_data.hora_fin
+        if cita_data.modalidad is not None:
+            cita.modalidad = cita_data.modalidad
+        if cita_data.notas_previas is not None:
+            cita.notas_previas = cita_data.notas_previas
+        if cita_data.url_videollamada is not None:
+            cita.url_videollamada = cita_data.url_videollamada
+        if cita_data.estado is not None:
+            cita.estado = cita_data.estado
+
+        db.commit()
+
+        return {
+            "mensaje": "Cita actualizada exitosamente",
+            "id_cita": cita.id_cita
         }
-    }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error actualizando cita: {str(e)}"
+        )
 
 
-@router.delete("/{id_cita}")
-async def cancelar_cita(
+@router.put("/{id_cita}/asistencia", response_model=dict)
+async def registrar_asistencia(
+    id_cita: int,
+    asistencia_data: AsistenciaUpdate,
+    current_user: models.Usuario = Depends(get_current_psicologo),
+    db: Session = Depends(get_db)
+):
+    """
+    ✅ Registrar si el paciente asistió o no (solo psicólogos)
+    """
+    try:
+        cita = db.query(models.Cita).filter(
+            models.Cita.id_cita == id_cita,
+            models.Cita.id_psicologo == current_user.id_usuario
+        ).first()
+
+        if not cita:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cita no encontrada"
+            )
+
+        cita.asistio = asistencia_data.asistio
+        
+        if asistencia_data.asistio:
+            cita.estado = "completada"
+        else:
+            cita.estado = "no_asistio"
+
+        db.commit()
+
+        return {
+            "mensaje": "Asistencia registrada exitosamente",
+            "asistio": cita.asistio,
+            "estado": cita.estado
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error registrando asistencia: {str(e)}"
+        )
+
+
+@router.delete("/{id_cita}", response_model=dict)
+async def eliminar_cita(
+    id_cita: int,
+    current_user: models.Usuario = Depends(get_current_psicologo),
+    db: Session = Depends(get_db)
+):
+    """
+    ✅ Eliminar cita (solo psicólogos)
+    """
+    try:
+        cita = db.query(models.Cita).filter(
+            models.Cita.id_cita == id_cita,
+            models.Cita.id_psicologo == current_user.id_usuario
+        ).first()
+
+        if not cita:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cita no encontrada"
+            )
+
+        db.delete(cita)
+        db.commit()
+
+        return {
+            "mensaje": "Cita eliminada exitosamente"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error eliminando cita: {str(e)}"
+        )
+
+
+# ==================== ENDPOINTS PACIENTE ====================
+
+@router.get("/paciente/mis-citas", response_model=dict)
+async def obtener_citas_paciente(
+    current_user: models.Usuario = Depends(get_current_paciente),
+    db: Session = Depends(get_db)
+):
+    """
+    ✅ Obtener todas las citas del paciente
+    """
+    try:
+        citas = db.query(models.Cita).filter(
+            models.Cita.id_paciente == current_user.id_usuario
+        ).order_by(models.Cita.fecha.desc(), models.Cita.hora_inicio.desc()).all()
+
+        citas_dict = []
+        for cita in citas:
+            psicologo = db.query(models.Usuario).filter(
+                models.Usuario.id_usuario == cita.id_psicologo
+            ).first()
+
+            # Determinar si la cita ya pasó
+            hoy = date.today()
+            ya_paso = cita.fecha < hoy
+
+            citas_dict.append({
+                "id_cita": cita.id_cita,
+                "psicologo": {
+                    "nombre": f"Dr(a). {psicologo.nombre} {psicologo.apellido}" if psicologo else "Psicólogo"
+                },
+                "fecha": cita.fecha.isoformat(),
+                "hora_inicio": cita.hora_inicio.isoformat() if cita.hora_inicio else None,
+                "hora_fin": cita.hora_fin.isoformat() if cita.hora_fin else None,
+                "modalidad": cita.modalidad,
+                "estado": cita.estado,
+                "notas_previas": cita.notas_previas,
+                "url_videollamada": cita.url_videollamada,
+                "asistio": cita.asistio,
+                "ya_paso": ya_paso,
+                "fecha_creacion": cita.fecha_creacion.isoformat()
+            })
+
+        return {
+            "citas": citas_dict,
+            "total": len(citas_dict)
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo citas: {str(e)}"
+        )
+
+
+@router.get("/{id_cita}", response_model=dict)
+async def obtener_cita_detalle(
     id_cita: int,
     current_user: models.Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Cancelar una cita
+    ✅ Obtener detalle de una cita específica
     """
-    cita = db.query(models.Cita).filter(
-        models.Cita.id_cita == id_cita
-    ).first()
-    
-    if not cita:
+    try:
+        cita = db.query(models.Cita).filter(
+            models.Cita.id_cita == id_cita
+        ).first()
+
+        if not cita:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cita no encontrada"
+            )
+
+        # Verificar permisos
+        if current_user.rol == models.UserRole.PACIENTE:
+            if cita.id_paciente != current_user.id_usuario:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No tienes permiso para ver esta cita"
+                )
+        elif current_user.rol == models.UserRole.PSICOLOGO:
+            if cita.id_psicologo != current_user.id_usuario:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No tienes permiso para ver esta cita"
+                )
+
+        return {
+            "id_cita": cita.id_cita,
+            "id_paciente": cita.id_paciente,
+            "id_psicologo": cita.id_psicologo,
+            "fecha": cita.fecha.isoformat(),
+            "hora_inicio": cita.hora_inicio.isoformat() if cita.hora_inicio else None,
+            "hora_fin": cita.hora_fin.isoformat() if cita.hora_fin else None,
+            "modalidad": cita.modalidad,
+            "estado": cita.estado,
+            "notas_previas": cita.notas_previas,
+            "url_videollamada": cita.url_videollamada,
+            "asistio": cita.asistio,
+            "fecha_creacion": cita.fecha_creacion.isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cita no encontrada"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo detalle de cita: {str(e)}"
         )
-    
-    # Verificar permisos
-    if current_user.rol == models.UserRole.PSICOLOGO:
-        if cita.id_psicologo != current_user.id_usuario:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin permisos")
-    elif current_user.rol == models.UserRole.PACIENTE:
-        if cita.id_paciente != current_user.id_usuario:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin permisos")
-    
-    cita.estado = models.AppointmentStatus.CANCELADA
-    db.commit()
-    
-    return {
-        "mensaje": "Cita cancelada exitosamente",
-        "id_cita": id_cita
-    }

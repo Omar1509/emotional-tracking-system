@@ -1,241 +1,268 @@
 // frontend/src/components/Psicologo/DashboardPsicologo.js
+// ✅ VERSIÓN CORREGIDA - Fix de keys en el map
 
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Calendar, TrendingUp, AlertTriangle, Clock, ChevronRight } from 'lucide-react';
-import API_URL from '../../config/api';
+import { Users, TrendingUp, AlertTriangle, Activity, Eye, Plus } from 'lucide-react';
+import { api } from '../../config/api';
 
 const DashboardPsicologo = ({ setCurrentView, setSelectedPacienteId }) => {
+  const [estadisticas, setEstadisticas] = useState({
+    totalPacientes: 0,
+    promedioAnimo: 0,
+    alertasActivas: 0,
+    registrosSemanales: 0
+  });
   const [pacientes, setPacientes] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  // Obtener información del usuario desde localStorage
-  const userStr = localStorage.getItem('user');
-  const user = userStr ? JSON.parse(userStr) : {};
-  
-  // Construir nombre completo del psicólogo
-  const nombrePsicologo = user.nombre && user.apellido 
-    ? `${user.nombre} ${user.apellido}`
-    : localStorage.getItem('nombre_completo') || 'Psicólogo';
 
   useEffect(() => {
-    loadPacientes();
+    cargarDatos();
   }, []);
 
-  const loadPacientes = async () => {
+  const cargarDatos = async () => {
     try {
-      const token = localStorage.getItem('token');
+      setLoading(true);
+      const response = await api.get('/psicologos/mis-pacientes');
       
-      console.log('📤 Cargando pacientes...');
+      const pacientesData = Array.isArray(response.pacientes) ? response.pacientes : [];
+      setPacientes(pacientesData);
+
+      const totalPacientes = pacientesData.length;
       
-      const response = await fetch(`${API_URL}/psicologos/mis-pacientes`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const pacientesConRegistros = pacientesData.filter(p => 
+        Array.isArray(p.registros_emocionales) && p.registros_emocionales.length > 0
+      );
+
+      const promedioAnimo = pacientesConRegistros.length > 0
+        ? pacientesConRegistros.reduce((sum, p) => {
+            const registros = p.registros_emocionales || [];
+            if (registros.length === 0) return sum;
+            const promedioP = registros.reduce((s, r) => s + (r.nivel_animo || 5), 0) / registros.length;
+            return sum + promedioP;
+          }, 0) / pacientesConRegistros.length
+        : 0;
+
+      const alertasActivas = pacientesConRegistros.reduce((count, p) => {
+        const ultimoRegistro = p.registros_emocionales?.[p.registros_emocionales.length - 1];
+        return ultimoRegistro && (ultimoRegistro.nivel_animo || 10) <= 4 ? count + 1 : count;
+      }, 0);
+
+      const hace7Dias = new Date();
+      hace7Dias.setDate(hace7Dias.getDate() - 7);
+      const registrosSemanales = pacientesData.reduce((count, p) => {
+        const registrosRecientes = (p.registros_emocionales || []).filter(r => 
+          r.fecha_hora && new Date(r.fecha_hora) >= hace7Dias
+        );
+        return count + registrosRecientes.length;
+      }, 0);
+
+      setEstadisticas({
+        totalPacientes,
+        promedioAnimo: promedioAnimo.toFixed(1),
+        alertasActivas,
+        registrosSemanales
       });
-
-      if (!response.ok) {
-        throw new Error('Error cargando pacientes');
-      }
-
-      const data = await response.json();
-      console.log('📊 Pacientes cargados:', data);
-      setPacientes(data.pacientes || []);
     } catch (error) {
-      console.error('❌ Error cargando pacientes:', error);
+      console.error('Error cargando datos:', error);
+      setPacientes([]);
+      setEstadisticas({
+        totalPacientes: 0,
+        promedioAnimo: 0,
+        alertasActivas: 0,
+        registrosSemanales: 0
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  const obtenerColorAnimo = (promedio) => {
+    if (promedio === undefined || promedio === null || isNaN(promedio)) {
+      return 'text-gray-400';
+    }
+    if (promedio <= 4) return 'text-red-500';
+    if (promedio <= 6) return 'text-orange-500';
+    if (promedio <= 8) return 'text-yellow-500';
+    return 'text-green-500';
+  };
+
   const verDetallePaciente = (pacienteId) => {
-    console.log('👁️ Ver detalle del paciente:', pacienteId);
     setSelectedPacienteId(pacienteId);
     setCurrentView('detalle-paciente');
   };
 
-  // Se asegura que pacientes sea un arreglo antes de usar filter/reduce
-  const safePacientes = pacientes || [];
-  
-  const pacientesConAlertas = safePacientes.filter(p => p.alertas_activas > 0);
-  const totalRegistrosSemana = safePacientes.reduce((sum, p) => sum + (p.registros_ultima_semana || 0), 0);
-  
-  const promedioAnimo = safePacientes.length > 0 
-    ? (safePacientes.reduce((sum, p) => sum + (p.promedio_animo_7dias || 0), 0) / safePacientes.length).toFixed(1)
-    : 0;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Cargando información...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      <div>
-        <h2 className="text-3xl font-bold text-gray-800">Bienvenido, Dr(a). {nombrePsicologo}</h2>
-        <p className="text-gray-600 mt-1">Panel de control profesional</p>
+    <div className="max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">
+          Dashboard del Psicólogo
+        </h1>
+        <p className="text-gray-600">Resumen general de tus pacientes</p>
       </div>
 
-      {/* Estadísticas Rápidas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">
+      {/* Tarjetas de estadísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Total de Pacientes */}
+        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-indigo-500 hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100 text-sm">Mis Pacientes</p>
-              <p className="text-4xl font-bold mt-2">{safePacientes.length}</p>
+              <p className="text-gray-600 text-sm mb-1">Total Pacientes</p>
+              <p className="text-4xl font-bold text-gray-800">{estadisticas.totalPacientes}</p>
             </div>
-            <Users className="w-10 h-10 text-blue-200" />
+            <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center">
+              <Users className="w-8 h-8 text-indigo-600" />
+            </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg">
+        {/* Promedio de Ánimo */}
+        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500 hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-emerald-100 text-sm">Promedio Ánimo</p>
-              <p className="text-4xl font-bold mt-2">{promedioAnimo}</p>
+              <p className="text-gray-600 text-sm mb-1">Promedio de Ánimo</p>
+              <p className="text-4xl font-bold text-gray-800">
+                {estadisticas.promedioAnimo}
+                <span className="text-xl text-gray-600">/10</span>
+              </p>
             </div>
-            <TrendingUp className="w-10 h-10 text-emerald-200" />
+            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
+              <TrendingUp className="w-8 h-8 text-green-600" />
+            </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg">
+        {/* Alertas Activas */}
+        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-red-500 hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-100 text-sm">Alertas Activas</p>
-              <p className="text-4xl font-bold mt-2">{pacientesConAlertas.length}</p>
+              <p className="text-gray-600 text-sm mb-1">Alertas Activas</p>
+              <p className="text-4xl font-bold text-gray-800">{estadisticas.alertasActivas}</p>
             </div>
-            <AlertTriangle className="w-10 h-10 text-orange-200" />
+            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center">
+              <AlertTriangle className="w-8 h-8 text-red-600" />
+            </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+        {/* Registros Semanales */}
+        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500 hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm">Registros/Semana</p>
-              <p className="text-4xl font-bold mt-2">{totalRegistrosSemana}</p>
+              <p className="text-gray-600 text-sm mb-1">Registros/Semana</p>
+              <p className="text-4xl font-bold text-gray-800">{estadisticas.registrosSemanales}</p>
             </div>
-            <Clock className="w-10 h-10 text-purple-200" />
+            <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center">
+              <Activity className="w-8 h-8 text-purple-600" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Acciones Rápidas */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">Acciones Rápidas</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Botón Registrar Paciente */}
+      <div className="mb-8">
+        <button
+          onClick={() => setCurrentView('registrar-paciente')}
+          className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg hover:shadow-xl"
+        >
+          <Plus className="w-5 h-5" />
+          <span className="font-semibold">Registrar Nuevo Paciente</span>
+        </button>
+      </div>
+
+      {/* Lista de pacientes */}
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">Mis Pacientes</h2>
           <button
-            onClick={() => setCurrentView('registrar-paciente')}
-            className="flex items-center space-x-3 p-4 bg-gradient-to-r from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200 rounded-lg transition-all border border-emerald-200 group"
+            onClick={() => setCurrentView('pacientes')}
+            className="text-indigo-600 hover:text-indigo-800 font-semibold"
           >
-            <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Plus className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-left">
-              <p className="font-semibold text-gray-800">Nuevo Paciente</p>
-              <p className="text-sm text-gray-600">Registrar un nuevo paciente</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => setCurrentView('citas')}
-            className="flex items-center space-x-3 p-4 bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 rounded-lg transition-all border border-purple-200 group"
-          >
-            <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Calendar className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-left">
-              <p className="font-semibold text-gray-800">Agenda</p>
-              <p className="text-sm text-gray-600">Ver citas programadas</p>
-            </div>
+            Ver todos →
           </button>
         </div>
-      </div>
 
-      {/* Alertas de Pacientes */}
-      {pacientesConAlertas.length > 0 && (
-        <div className="bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-orange-500 rounded-lg p-6">
-          <div className="flex items-start space-x-3">
-            <AlertTriangle className="w-6 h-6 text-orange-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h4 className="font-semibold text-orange-800 mb-3">
-                ⚠️ Pacientes que requieren atención
-              </h4>
-              <div className="space-y-2">
-                {pacientesConAlertas.slice(0, 3).map(paciente => (
-                  <div key={paciente.id_paciente} className="bg-white rounded-lg p-3 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-gray-800">{paciente.nombre_completo || 'Paciente Desconocido'}</p>
-                        <p className="text-sm text-gray-600">
-                          {paciente.alertas_activas} alerta(s) activa(s) - Ánimo: {paciente.promedio_animo_7dias}/10
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => verDetallePaciente(paciente.id_paciente)}
-                        className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all text-sm flex items-center space-x-2"
-                      >
-                        <span>Ver Detalles</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Lista de Pacientes */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-gray-800">Mis Pacientes</h3>
-          {safePacientes.length > 0 && (
-            <span className="text-sm text-gray-500">{safePacientes.length} paciente(s)</span>
-          )}
-        </div>
-        
-        {loading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-          </div>
-        ) : safePacientes.length === 0 ? (
-          <div className="text-center py-8">
-            <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-600 mb-4">No tienes pacientes asignados aún</p>
+        {pacientes.length === 0 ? (
+          <div className="text-center py-12">
+            <Users className="w-20 h-20 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">
+              No tienes pacientes registrados
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Comienza registrando tu primer paciente
+            </p>
             <button
               onClick={() => setCurrentView('registrar-paciente')}
-              className="px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all"
+              className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 transition-all"
             >
-              Registrar Primer Paciente
+              Registrar Paciente
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {safePacientes.map(paciente => (
-              <button
-                key={paciente.id_paciente}
-                onClick={() => verDetallePaciente(paciente.id_paciente)}
-                className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-blue-50 hover:border-blue-300 border-2 border-transparent transition-all cursor-pointer group"
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold group-hover:scale-110 transition-transform">
-                    {/* CORRECCIÓN: Usar encadenamiento opcional y fallback */}
-                    {paciente.nombre_completo?.charAt(0) || '?'} 
+          <div className="space-y-4">
+            {pacientes.slice(0, 5).map((paciente) => {
+              // ✅ FIX: Calcular promedio con validación completa
+              const registros = Array.isArray(paciente.registros_emocionales) ? paciente.registros_emocionales : [];
+              const promedio = registros.length > 0
+                ? (registros.reduce((sum, r) => sum + (r.nivel_animo || 5), 0) / registros.length).toFixed(1)
+                : null;
+
+              return (
+                <div
+                  key={`paciente-${paciente.id_usuario}`}
+                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white text-lg font-bold">
+                      {paciente.nombre?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-800">
+                        {paciente.nombre || 'Sin'} {paciente.apellido || 'nombre'}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {registros.length} registro{registros.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-left">
-                    <p className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">
-                      {paciente.nombre_completo || 'Paciente Desconocido'}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {(paciente.registros_ultima_semana || 0)} registros esta semana
-                      {paciente.email && ` • ${paciente.email}`}
-                    </p>
+
+                  <div className="flex items-center space-x-4">
+                    {promedio !== null ? (
+                      <div className="text-center">
+                        <p className="text-xs text-gray-600 mb-1">Promedio</p>
+                        <p className={`text-2xl font-bold ${obtenerColorAnimo(parseFloat(promedio))}`}>
+                          {promedio}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <p className="text-xs text-gray-600 mb-1">Promedio</p>
+                        <p className="text-2xl font-bold text-gray-400">N/A</p>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => verDetallePaciente(paciente.id_usuario)}
+                      className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>Ver</span>
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-blue-600">{(paciente.promedio_animo_7dias || 0)}/10</p>
-                    <p className="text-xs text-gray-500">Promedio 7 días</p>
-                  </div>
-                  <ChevronRight className="w-6 h-6 text-gray-400 group-hover:text-blue-500 transition-colors" />
-                </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

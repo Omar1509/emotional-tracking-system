@@ -1,21 +1,22 @@
 // frontend/src/components/Paciente/ChatApoyoRasa.js
-// ✅ VERSIÓN OPTIMIZADA - USA API CENTRALIZADA
+// ✅ VERSIÓN ULTRA-MEJORADA - Con debugging detallado y mejor manejo de errores
 
 import React, { useState, useEffect, useRef } from 'react';
-import { api, getCurrentUser } from '../../config/api';  // ✅ Importar API centralizada
+import { Send, Trash2, MessageCircle, ArrowLeft } from 'lucide-react';
+import { api } from '../../config/api';
 import Notificacion from '../Shared/Notificacion';
 
-const ChatApoyoRasa = () => {
+const ChatApoyoRasa = ({ setCurrentView }) => {
   const [mensajes, setMensajes] = useState([]);
   const [mensaje, setMensaje] = useState('');
   const [loading, setLoading] = useState(false);
+  const [escribiendo, setEscribiendo] = useState(false);
   const [notificacion, setNotificacion] = useState(null);
-  const [usuario, setUsuario] = useState(null);
+  const [chatHabilitado, setChatHabilitado] = useState(true);
   const mensajesEndRef = useRef(null);
 
   useEffect(() => {
-    const usuarioData = getCurrentUser();  // ✅ Usar función centralizada
-    setUsuario(usuarioData);
+    console.log('🚀 ChatApoyoRasa montado');
     cargarHistorial();
   }, []);
 
@@ -29,20 +30,149 @@ const ChatApoyoRasa = () => {
 
   const cargarHistorial = async () => {
     try {
-      const response = await api.get('/historial');  // ✅ API centralizada
+      console.log('📡 Cargando historial de chat...');
+      const response = await api.get('/chat/historial?limite=50');
       
-      if (response.historial && response.historial.length > 0) {
-        const historialFormateado = response.historial.map(msg => ({
-          texto: msg.mensaje,
-          esBot: msg.es_bot,
-          timestamp: msg.timestamp,
-          emocion: msg.emocion_detectada
+      if (response.mensajes && Array.isArray(response.mensajes)) {
+        console.log('✅ Historial cargado:', response.mensajes.length, 'mensajes');
+        const mensajesOrdenados = response.mensajes.reverse();
+        setMensajes(mensajesOrdenados);
+      } else {
+        console.log('ℹ️ No hay historial previo');
+      }
+      setChatHabilitado(true);
+    } catch (error) {
+      console.warn('⚠️ Error cargando historial (no crítico):', error);
+      setChatHabilitado(true); // Habilitar el chat aunque no haya historial
+    }
+  };
+
+  const enviarMensaje = async (e) => {
+    e.preventDefault();
+    
+    console.log('📤 Intentando enviar mensaje...');
+    
+    if (!mensaje.trim()) {
+      mostrarNotificacion('advertencia', 'Mensaje vacío', 'Por favor escribe un mensaje');
+      return;
+    }
+
+    const textoMensaje = mensaje.trim();
+    console.log('📝 Mensaje a enviar:', textoMensaje);
+
+    const mensajeUsuario = {
+      mensaje: textoMensaje,
+      es_bot: false,
+      fecha_hora: new Date().toISOString(),
+      emocion: null
+    };
+
+    // Agregar mensaje del usuario inmediatamente
+    setMensajes(prev => [...prev, mensajeUsuario]);
+    setMensaje('');
+    setLoading(true);
+    setEscribiendo(true);
+
+    try {
+      console.log('📡 Enviando al backend...');
+      
+      const response = await api.post('/chat', {
+        mensaje: textoMensaje
+      });
+
+      console.log('✅ Respuesta recibida del backend:', response);
+      setEscribiendo(false);
+
+      // Verificar si hay respuestas
+      if (response.respuestas && Array.isArray(response.respuestas) && response.respuestas.length > 0) {
+        console.log('💬 Procesando', response.respuestas.length, 'respuesta(s)');
+        
+        const nuevosMessages = response.respuestas.map(respuesta => ({
+          mensaje: respuesta,
+          es_bot: true,
+          fecha_hora: new Date().toISOString(),
+          emocion: response.analisis_emocional?.emocion_dominante
         }));
-        setMensajes(historialFormateado);
+
+        setMensajes(prev => [...prev, ...nuevosMessages]);
+
+        // Mostrar alerta si hay alto riesgo
+        if (response.requiere_atencion) {
+          console.log('⚠️ Alto riesgo detectado - Notificando al psicólogo');
+          mostrarNotificacion(
+            'advertencia',
+            'Atención',
+            'Hemos notificado a tu psicólogo sobre tu estado emocional'
+          );
+        }
+
+        // Log del análisis emocional
+        if (response.analisis_emocional) {
+          console.log('🧠 Análisis emocional:', {
+            emocion: response.analisis_emocional.emocion_dominante,
+            sentimiento: response.analisis_emocional.sentimiento,
+            score: response.analisis_emocional.sentimiento_score
+          });
+        }
+      } else {
+        console.warn('⚠️ No se recibieron respuestas del backend');
+        
+        // Mensaje de fallback
+        const errorMsg = {
+          mensaje: 'Lo siento, no pude generar una respuesta en este momento. ¿Podrías reformular tu mensaje?',
+          es_bot: true,
+          fecha_hora: new Date().toISOString()
+        };
+        setMensajes(prev => [...prev, errorMsg]);
       }
     } catch (error) {
-      console.error('Error cargando historial:', error);
-      // No mostrar error si no hay historial
+      console.error('❌ Error enviando mensaje:', error);
+      console.error('Detalles del error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      
+      setEscribiendo(false);
+      
+      // Mensaje de error más amigable
+      let mensajeError = 'Lo siento, no pude procesar tu mensaje. Por favor intenta de nuevo.';
+      
+      if (error.response?.status === 500) {
+        mensajeError = 'Hubo un problema con el servidor. Por favor intenta nuevamente en unos momentos.';
+      } else if (error.response?.status === 401) {
+        mensajeError = 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.';
+      } else if (!navigator.onLine) {
+        mensajeError = 'No hay conexión a internet. Por favor verifica tu conexión.';
+      }
+      
+      const errorMsg = {
+        mensaje: mensajeError,
+        es_bot: true,
+        fecha_hora: new Date().toISOString()
+      };
+      setMensajes(prev => [...prev, errorMsg]);
+      
+      mostrarNotificacion('error', 'Error de conexión', 'No se pudo enviar el mensaje');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const limpiarHistorial = async () => {
+    if (!window.confirm('¿Estás seguro de que quieres borrar todo el historial? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    try {
+      console.log('🗑️ Limpiando historial...');
+      await api.delete('/chat/historial');
+      setMensajes([]);
+      console.log('✅ Historial limpiado correctamente');
+      mostrarNotificacion('exito', 'Historial limpio', 'Se eliminó el historial de conversación');
+    } catch (error) {
+      console.error('❌ Error limpiando historial:', error);
+      mostrarNotificacion('error', 'Error', 'No se pudo limpiar el historial');
     }
   };
 
@@ -51,86 +181,32 @@ const ChatApoyoRasa = () => {
     setTimeout(() => setNotificacion(null), 5000);
   };
 
-  const enviarMensaje = async (e) => {
-    e.preventDefault();
-    
-    if (!mensaje.trim()) return;
-
-    try {
-      const nuevoMensaje = {
-        texto: mensaje,
-        esBot: false,
-        timestamp: new Date().toISOString()
-      };
-      
-      setMensajes(prev => [...prev, nuevoMensaje]);
-      setMensaje('');
-      setLoading(true);
-
-      // ✅ Usar API centralizada
-      const response = await api.post('/chat', {
-        mensaje: mensaje
-      });
-
-      const respuestaBot = {
-        texto: response.respuesta,
-        esBot: true,
-        timestamp: response.timestamp,
-        emocion: response.emocion_detectada
-      };
-      
-      setMensajes(prev => [...prev, respuestaBot]);
-      setLoading(false);
-      
-    } catch (error) {
-      console.error('Error enviando mensaje:', error);
-      setLoading(false);
-      
-      const mensajeError = {
-        texto: 'Lo siento, el servicio de chatbot no está disponible en este momento. Por favor, intenta más tarde.',
-        esBot: true,
-        timestamp: new Date().toISOString()
-      };
-      setMensajes(prev => [...prev, mensajeError]);
-      
-      mostrarNotificacion('error', 'Error', 'No se pudo conectar con el chatbot');
-    }
-  };
-
-  const limpiarHistorial = async () => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar todo el historial de conversación?')) {
-      return;
-    }
-
-    try {
-      // ✅ Usar API centralizada
-      await api.delete('/historial');
-      
-      setMensajes([]);
-      mostrarNotificacion('exito', 'Historial Eliminado', 'Tu historial de conversación ha sido eliminado');
-    } catch (error) {
-      console.error('Error limpiando historial:', error);
-      mostrarNotificacion('error', 'Error', 'No se pudo eliminar el historial');
-    }
-  };
-
   const obtenerEmojiEmocion = (emocion) => {
-    const emociones = {
+    if (!emocion) return null;
+    
+    const emojis = {
       'tristeza': '😢',
       'alegria': '😊',
       'alegría': '😊',
-      'amor': '❤️',
       'enojo': '😠',
       'miedo': '😰',
       'sorpresa': '😲',
       'ansiedad': '😰',
-      'neutral': '😐'
+      'neutral': '😐',
+      'disgusto': '😖',
+      'joy': '😊',
+      'sadness': '😢',
+      'anger': '😠',
+      'fear': '😰',
+      'surprise': '😲',
+      'disgust': '😖'
     };
-    return emociones[emocion?.toLowerCase()] || null;
+    
+    return emojis[emocion.toLowerCase()] || null;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-8 flex items-center justify-center">
+    <div className="flex flex-col h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
       {notificacion && (
         <Notificacion
           tipo={notificacion.tipo}
@@ -140,139 +216,144 @@ const ChatApoyoRasa = () => {
         />
       )}
 
-      <div className="w-full max-w-4xl h-[85vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold mb-2">💬 Chatbot de Apoyo Emocional</h2>
-              <p className="text-indigo-100">Habla libremente, estoy aquí para escucharte</p>
-            </div>
-            {mensajes.length > 0 && (
-              <button
-                onClick={limpiarHistorial}
-                className="px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 border-2 border-white rounded-lg font-semibold transition-all"
-              >
-                🗑️ Limpiar
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Mensajes */}
-        <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
-          {mensajes.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4 animate-bounce">🤖</div>
-              <h3 className="text-2xl font-bold text-indigo-600 mb-4">
-                ¡Hola, {usuario?.nombre_completo || 'amigo'}!
-              </h3>
-              <p className="text-gray-700 text-lg mb-2">Soy tu asistente de apoyo emocional.</p>
-              <p className="text-gray-600 mb-6">
-                Puedes contarme cómo te sientes, y yo estaré aquí para escucharte y apoyarte.
-              </p>
-              <div className="bg-white rounded-xl p-6 max-w-md mx-auto shadow-md">
-                <p className="font-semibold text-indigo-600 mb-3">Puedes decirme cosas como:</p>
-                <ul className="text-left space-y-2">
-                  {['Me siento triste hoy', 'Estoy muy feliz', 'Tengo ansiedad', 'Necesito hablar'].map((texto, i) => (
-                    <li key={i} className="flex items-center space-x-2 text-gray-700">
-                      <span className="text-xl">💭</span>
-                      <span>"{texto}"</span>
-                    </li>
-                  ))}
-                </ul>
+      {/* Header */}
+      <div className="bg-white shadow-lg p-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setCurrentView('dashboard')}
+              className="text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
+                <MessageCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-800">Chat de Apoyo Emocional</h1>
+                <p className="text-sm text-gray-600">
+                  Asistente terapéutico con IA {!chatHabilitado && '(Conectando...)'}
+                </p>
               </div>
             </div>
+          </div>
+          
+          <button
+            onClick={limpiarHistorial}
+            disabled={mensajes.length === 0}
+            className="flex items-center space-x-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span className="font-semibold">Limpiar</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Área de mensajes */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-4xl mx-auto space-y-4">
+          {mensajes.length === 0 ? (
+            <div className="text-center text-white py-12">
+              <MessageCircle className="w-20 h-20 mx-auto mb-4 opacity-50" />
+              <h3 className="text-2xl font-bold mb-2">¡Hola! 👋</h3>
+              <p className="text-lg opacity-90 mb-4">
+                Soy tu asistente de apoyo emocional. Estoy aquí para escucharte.
+              </p>
+              <p className="text-sm opacity-75">
+                Puedes compartir cómo te sientes, lo que te preocupa o simplemente conversar.
+              </p>
+            </div>
           ) : (
-            <div className="space-y-4">
-              {mensajes.map((msg, index) => (
+            mensajes.map((msg, index) => (
+              <div
+                key={`msg-${index}-${msg.fecha_hora}`}
+                className={`flex ${msg.es_bot ? 'justify-start' : 'justify-end'}`}
+              >
                 <div
-                  key={index}
-                  className={`flex gap-3 animate-fadeIn ${msg.esBot ? 'justify-start' : 'justify-end'}`}
+                  className={`max-w-xl rounded-2xl px-6 py-4 shadow-lg ${
+                    msg.es_bot
+                      ? 'bg-white text-gray-800'
+                      : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white'
+                  }`}
                 >
-                  {msg.esBot && (
-                    <div className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-2xl flex-shrink-0">
-                      🤖
-                    </div>
-                  )}
-                  
-                  <div className={`max-w-[70%] ${!msg.esBot ? 'order-1' : ''}`}>
-                    <div
-                      className={`p-4 rounded-2xl shadow-md ${
-                        msg.esBot
-                          ? 'bg-white text-gray-800 rounded-tl-none'
-                          : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-tr-none'
-                      }`}
-                    >
-                      <p className="leading-relaxed">{msg.texto}</p>
-                      {msg.emocion && obtenerEmojiEmocion(msg.emocion) && (
-                        <span
-                          className="inline-block ml-2 text-xl"
-                          title={`Emoción detectada: ${msg.emocion}`}
-                        >
-                          {obtenerEmojiEmocion(msg.emocion)}
-                        </span>
-                      )}
-                    </div>
-                    <div className={`text-xs text-gray-500 mt-1 px-2 ${!msg.esBot ? 'text-right' : ''}`}>
-                      {new Date(msg.timestamp).toLocaleTimeString('es-ES', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </div>
-                  </div>
-                  
-                  {!msg.esBot && (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 shadow-md flex items-center justify-center text-2xl flex-shrink-0">
-                      👤
-                    </div>
-                  )}
-                </div>
-              ))}
-              
-              {loading && (
-                <div className="flex gap-3 justify-start animate-fadeIn">
-                  <div className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-2xl">
-                    🤖
-                  </div>
-                  <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-md">
-                    <div className="flex gap-1">
-                      {[0, 1, 2].map(i => (
-                        <div
-                          key={i}
-                          className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"
-                          style={{ animationDelay: `${i * 0.15}s` }}
-                        />
-                      ))}
+                  <div className="flex items-start space-x-2">
+                    {msg.es_bot && (
+                      <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                        <MessageCircle className="w-4 h-4 text-white" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <p className="text-base leading-relaxed whitespace-pre-wrap">
+                        {msg.mensaje}
+                      </p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className={`text-xs ${msg.es_bot ? 'text-gray-500' : 'text-indigo-100'}`}>
+                          {new Date(msg.fecha_hora).toLocaleTimeString('es-ES', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                        {!msg.es_bot && msg.emocion && (
+                          <span className="text-xl ml-2" title={msg.emocion}>
+                            {obtenerEmojiEmocion(msg.emocion)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              )}
-              
-              <div ref={mensajesEndRef} />
+              </div>
+            ))
+          )}
+
+          {escribiendo && (
+            <div className="flex justify-start">
+              <div className="bg-white rounded-2xl px-6 py-4 shadow-lg">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
+                    <MessageCircle className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
-        </div>
 
-        {/* Input */}
-        <form onSubmit={enviarMensaje} className="p-6 bg-white border-t-2 border-gray-100">
-          <div className="flex gap-3">
+          <div ref={mensajesEndRef} />
+        </div>
+      </div>
+
+      {/* Input de mensaje */}
+      <div className="bg-white border-t shadow-lg p-4">
+        <form onSubmit={enviarMensaje} className="max-w-4xl mx-auto">
+          <div className="flex items-center space-x-4">
             <input
               type="text"
               value={mensaje}
               onChange={(e) => setMensaje(e.target.value)}
-              placeholder="Escribe tu mensaje aquí..."
-              disabled={loading}
-              className="flex-1 px-5 py-3 border-2 border-gray-200 rounded-full focus:outline-none focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+              placeholder={loading ? "Enviando..." : "Escribe tu mensaje aquí..."}
+              disabled={loading || !chatHabilitado}
+              className="flex-1 px-6 py-4 border-2 border-gray-300 rounded-full focus:outline-none focus:border-indigo-500 text-gray-800 placeholder-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed transition-all"
             />
             <button
               type="submit"
-              disabled={loading || !mensaje.trim()}
-              className="w-14 h-14 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-2xl hover:from-indigo-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-110 shadow-lg flex items-center justify-center"
+              disabled={loading || !mensaje.trim() || !chatHabilitado}
+              className="w-14 h-14 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full hover:from-indigo-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed flex items-center justify-center"
+              title={!chatHabilitado ? "Conectando con el servidor..." : "Enviar mensaje"}
             >
-              {loading ? '⏳' : '📤'}
+              <Send className="w-6 h-6" />
             </button>
           </div>
+          {!chatHabilitado && (
+            <p className="text-center text-red-600 text-sm mt-2">
+              Conectando con el servidor... Si el problema persiste, recarga la página.
+            </p>
+          )}
         </form>
       </div>
     </div>

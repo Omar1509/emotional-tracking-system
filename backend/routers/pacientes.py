@@ -1,185 +1,233 @@
-@router.get("/pacientes/{id_paciente}/analisis-emocional-avanzado")
-def obtener_analisis_emocional_avanzado(
+# backend/routers/pacientes.py
+# ✅ ROUTER DE PACIENTES - CORREGIDO
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import Optional, List
+from datetime import datetime, date
+
+import models
+from database import get_db
+from dependencies import get_current_user, get_current_paciente
+
+# ✅ DEFINIR ROUTER PRIMERO
+router = APIRouter()
+
+# ==================== PERFIL DEL PACIENTE ====================
+
+@router.get("/perfil")
+async def obtener_perfil_paciente(
+    current_user: models.Usuario = Depends(get_current_paciente),
+    db: Session = Depends(get_db)
+):
+    """
+    ✅ Obtener perfil del paciente autenticado
+    """
+    try:
+        return {
+            "id_usuario": current_user.id_usuario,
+            "nombre": current_user.nombre,
+            "apellido": current_user.apellido,
+            "email": current_user.email,
+            "telefono": current_user.telefono,
+            "fecha_nacimiento": current_user.fecha_nacimiento.isoformat() if current_user.fecha_nacimiento else None,
+            "genero": current_user.genero,
+            "edad": current_user.edad,
+            "activo": current_user.activo
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo perfil: {str(e)}"
+        )
+
+
+@router.put("/perfil")
+async def actualizar_perfil_paciente(
+    telefono: Optional[str] = None,
+    current_user: models.Usuario = Depends(get_current_paciente),
+    db: Session = Depends(get_db)
+):
+    """
+    ✅ Actualizar perfil del paciente
+    """
+    try:
+        if telefono:
+            current_user.telefono = telefono
+        
+        db.commit()
+        db.refresh(current_user)
+
+        return {
+            "mensaje": "Perfil actualizado exitosamente",
+            "usuario": {
+                "id_usuario": current_user.id_usuario,
+                "nombre": current_user.nombre,
+                "apellido": current_user.apellido,
+                "email": current_user.email,
+                "telefono": current_user.telefono
+            }
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error actualizando perfil: {str(e)}"
+        )
+
+
+# ==================== REGISTROS EMOCIONALES ====================
+
+@router.get("/{id_paciente}/registros-emocionales")
+async def obtener_registros_emocionales(
     id_paciente: int,
-    dias: int = 30,
+    limite: int = 50,
     current_user: models.Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene análisis emocional avanzado del paciente para el psicólogo
+    ✅ Obtener registros emocionales de un paciente
+    - Paciente: solo puede ver sus propios registros
+    - Psicólogo: puede ver registros de sus pacientes asignados
     """
-    # Verificar que sea psicólogo
-    if current_user.rol != models.UserRole.PSICOLOGO:
-        raise HTTPException(status_code=403, detail="Solo psicólogos pueden acceder")
-    
-    # Verificar que el paciente está asignado
-    asignacion = db.query(models.PacientePsicologo).filter(
-        models.PacientePsicologo.id_paciente == id_paciente,
-        models.PacientePsicologo.id_psicologo == current_user.id_usuario,
-        models.PacientePsicologo.activo == True
-    ).first()
-    
-    if not asignacion:
-        raise HTTPException(status_code=403, detail="Paciente no asignado")
-    
-    # Obtener registros emocionales de PostgreSQL
-    fecha_inicio = datetime.utcnow() - timedelta(days=dias)
-    
-    registros = db.query(models.RegistroEmocional).filter(
-        models.RegistroEmocional.id_paciente == id_paciente,
-        models.RegistroEmocional.fecha_registro >= fecha_inicio
-    ).order_by(models.RegistroEmocional.fecha_registro.asc()).all()
-    
-    # Obtener datos de MongoDB (chat)
     try:
-        mongo_db = get_database()
-        
-        # Análisis emocional del chat
-        chat_emotions = list(mongo_db.chat_messages.find({
-            "user_id": str(id_paciente),
-            "is_bot": False,
-            "timestamp": {"$gte": fecha_inicio},
-            "emotional_analysis": {"$exists": True}
-        }).sort("timestamp", 1))
-        
-    except Exception as e:
-        print(f"Error obteniendo datos de MongoDB: {e}")
-        chat_emotions = []
-    
-    # Procesar datos para gráficos
-    emociones_diarias = {}
-    emociones_chat = {}
-    nivel_riesgo_diario = {}
-    
-    # Procesar registros manuales
-    for registro in registros:
-        fecha_str = registro.fecha_registro.strftime('%Y-%m-%d')
-        
-        if fecha_str not in emociones_diarias:
-            emociones_diarias[fecha_str] = {
-                'alegria': 0, 'tristeza': 0, 'ansiedad': 0, 
-                'enojo': 0, 'miedo': 0, 'neutral': 0,
-                'count': 0
-            }
-        
-        emocion = registro.emocion_principal.lower()
-        if emocion in emociones_diarias[fecha_str]:
-            emociones_diarias[fecha_str][emocion] += registro.intensidad
-            emociones_diarias[fecha_str]['count'] += 1
-    
-    # Promediar intensidades
-    for fecha in emociones_diarias:
-        count = emociones_diarias[fecha]['count']
-        if count > 0:
-            for emocion in ['alegria', 'tristeza', 'ansiedad', 'enojo', 'miedo', 'neutral']:
-                emociones_diarias[fecha][emocion] = round(
-                    emociones_diarias[fecha][emocion] / count, 2
+        # Verificar permisos
+        if current_user.rol == 'paciente':
+            if current_user.id_usuario != id_paciente:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No tienes permiso para ver estos registros"
                 )
-    
-    # Procesar emociones del chat
-    for msg in chat_emotions:
-        fecha_str = msg['timestamp'].strftime('%Y-%m-%d')
-        
-        if fecha_str not in emociones_chat:
-            emociones_chat[fecha_str] = {
-                'alegria': 0, 'tristeza': 0, 'ansiedad': 0,
-                'enojo': 0, 'miedo': 0, 'neutral': 0,
-                'count': 0, 'riesgo_total': 0
-            }
-        
-        analysis = msg.get('emotional_analysis', {})
-        emotions = analysis.get('emotions', {})
-        
-        # Emoción dominante
-        emocion = emotions.get('dominant_emotion', 'neutral').lower()
-        scores = emotions.get('scores', {})
-        
-        # Intensidad de la emoción
-        intensidad = scores.get(emocion, 0) * 10  # Normalizar a escala 1-10
-        
-        if emocion in emociones_chat[fecha_str]:
-            emociones_chat[fecha_str][emocion] += intensidad
-            emociones_chat[fecha_str]['count'] += 1
-        
-        # Nivel de riesgo
-        risk_score = analysis.get('risk_assessment', {}).get('score', 0)
-        emociones_chat[fecha_str]['riesgo_total'] += risk_score
-    
-    # Promediar chat
-    for fecha in emociones_chat:
-        count = emociones_chat[fecha]['count']
-        if count > 0:
-            for emocion in ['alegria', 'tristeza', 'ansiedad', 'enojo', 'miedo', 'neutral']:
-                emociones_chat[fecha][emocion] = round(
-                    emociones_chat[fecha][emocion] / count, 2
+        elif current_user.rol == 'psicologo':
+            # Verificar que el paciente está asignado a este psicólogo
+            asignacion = db.query(models.PacientePsicologo).filter(
+                models.PacientePsicologo.id_paciente == id_paciente,
+                models.PacientePsicologo.id_psicologo == current_user.id_usuario,
+                models.PacientePsicologo.activo == True
+            ).first()
+
+            if not asignacion:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="El paciente no está asignado a este psicólogo"
                 )
-            emociones_chat[fecha]['riesgo_promedio'] = round(
-                emociones_chat[fecha]['riesgo_total'] / count, 2
-            )
-    
-    # Comparación registro manual vs chat
-    comparacion = []
-    todas_fechas = sorted(set(list(emociones_diarias.keys()) + list(emociones_chat.keys())))
-    
-    for fecha in todas_fechas:
-        manual = emociones_diarias.get(fecha, {})
-        chat = emociones_chat.get(fecha, {})
-        
-        comparacion.append({
-            'fecha': fecha,
-            'manual': {
-                'alegria': manual.get('alegria', 0),
-                'tristeza': manual.get('tristeza', 0),
-                'ansiedad': manual.get('ansiedad', 0),
-            },
-            'chat': {
-                'alegria': chat.get('alegria', 0),
-                'tristeza': chat.get('tristeza', 0),
-                'ansiedad': chat.get('ansiedad', 0),
-            },
-            'nivel_riesgo': chat.get('riesgo_promedio', 0)
-        })
-    
-    # Estadísticas generales
-    total_registros_manuales = len(registros)
-    total_mensajes_chat = len(chat_emotions)
-    
-    # Emoción más frecuente
-    conteo_emociones = {}
-    for registro in registros:
-        emocion = registro.emocion_principal
-        conteo_emociones[emocion] = conteo_emociones.get(emocion, 0) + 1
-    
-    emocion_dominante = max(conteo_emociones.items(), key=lambda x: x[1])[0] if conteo_emociones else "neutral"
-    
-    # Tendencia (mejorando/empeorando)
-    if len(comparacion) >= 7:
-        ultimos_7_dias = comparacion[-7:]
-        primeros_7_dias = comparacion[:7] if len(comparacion) >= 14 else comparacion[:len(comparacion)//2]
-        
-        promedio_reciente = sum(d['manual'].get('tristeza', 0) + d['manual'].get('ansiedad', 0) for d in ultimos_7_dias) / len(ultimos_7_dias)
-        promedio_anterior = sum(d['manual'].get('tristeza', 0) + d['manual'].get('ansiedad', 0) for d in primeros_7_dias) / len(primeros_7_dias)
-        
-        if promedio_reciente < promedio_anterior * 0.8:
-            tendencia = "mejorando"
-        elif promedio_reciente > promedio_anterior * 1.2:
-            tendencia = "empeorando"
-        else:
-            tendencia = "estable"
-    else:
-        tendencia = "datos_insuficientes"
-    
-    return {
-        "comparacion_diaria": comparacion,
-        "estadisticas": {
-            "total_registros_manuales": total_registros_manuales,
-            "total_mensajes_chat": total_mensajes_chat,
-            "emocion_dominante": emocion_dominante,
-            "tendencia": tendencia,
-            "dias_analizados": dias
-        },
-        "emociones_mas_frecuentes": [
-            {"emocion": k, "cantidad": v}
-            for k, v in sorted(conteo_emociones.items(), key=lambda x: x[1], reverse=True)
+
+        # Obtener registros
+        registros = db.query(models.RegistroEmocional).filter(
+            models.RegistroEmocional.id_usuario == id_paciente
+        ).order_by(
+            models.RegistroEmocional.fecha_hora.desc()
+        ).limit(limite).all()
+
+        registros_dict = [
+            {
+                "id_registro": reg.id_registro,
+                "fecha_hora": reg.fecha_hora.isoformat(),
+                "emocion_principal": reg.emocion_principal,
+                "nivel_animo": reg.nivel_animo,
+                "intensidad_emocional": reg.intensidad_emocional,
+                "notas": reg.notas,
+                "contexto": reg.contexto
+            }
+            for reg in registros
         ]
-    }
+
+        return {
+            "registros": registros_dict,
+            "total": len(registros_dict)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo registros: {str(e)}"
+        )
+
+
+# ==================== ESTADÍSTICAS ====================
+
+@router.get("/estadisticas")
+async def obtener_estadisticas_paciente(
+    current_user: models.Usuario = Depends(get_current_paciente),
+    db: Session = Depends(get_db)
+):
+    """
+    ✅ Obtener estadísticas del paciente
+    """
+    try:
+        # Contar registros totales
+        total_registros = db.query(models.RegistroEmocional).filter(
+            models.RegistroEmocional.id_usuario == current_user.id_usuario
+        ).count()
+
+        # Calcular promedio de ánimo
+        registros = db.query(models.RegistroEmocional).filter(
+            models.RegistroEmocional.id_usuario == current_user.id_usuario
+        ).all()
+
+        promedio_animo = 0
+        if registros:
+            suma_animo = sum(r.nivel_animo for r in registros if r.nivel_animo)
+            promedio_animo = round(suma_animo / len(registros), 1) if registros else 0
+
+        return {
+            "total_registros": total_registros,
+            "promedio_animo": promedio_animo,
+            "registros_ultima_semana": len([
+                r for r in registros 
+                if (datetime.utcnow() - r.fecha_hora).days <= 7
+            ])
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo estadísticas: {str(e)}"
+        )
+
+
+# ==================== MI PSICÓLOGO ====================
+
+@router.get("/mi-psicologo")
+async def obtener_mi_psicologo(
+    current_user: models.Usuario = Depends(get_current_paciente),
+    db: Session = Depends(get_db)
+):
+    """
+    ✅ Obtener información del psicólogo asignado
+    """
+    try:
+        asignacion = db.query(models.PacientePsicologo).filter(
+            models.PacientePsicologo.id_paciente == current_user.id_usuario,
+            models.PacientePsicologo.activo == True
+        ).first()
+
+        if not asignacion:
+            return {
+                "tiene_psicologo": False,
+                "mensaje": "No tienes un psicólogo asignado"
+            }
+
+        psicologo = db.query(models.Usuario).filter(
+            models.Usuario.id_usuario == asignacion.id_psicologo
+        ).first()
+
+        return {
+            "tiene_psicologo": True,
+            "psicologo": {
+                "id_usuario": psicologo.id_usuario,
+                "nombre": psicologo.nombre,
+                "apellido": psicologo.apellido,
+                "email": psicologo.email,
+                "telefono": psicologo.telefono,
+                "fecha_asignacion": asignacion.fecha_asignacion.isoformat()
+            }
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo psicólogo: {str(e)}"
+        )

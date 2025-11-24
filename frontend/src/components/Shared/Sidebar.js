@@ -1,5 +1,8 @@
+// frontend/src/components/Shared/Sidebar.js
+// ✅ VERSIÓN ACTUALIZADA CON NUEVAS OPCIONES DE MENÚ
+
 import React from 'react';
-import { Home, Users, Plus, MessageCircle, BarChart3, LogOut, Calendar, FileText } from 'lucide-react';
+import { Home, Users, Plus, MessageCircle, BarChart3, LogOut, Calendar, FileText, Activity, Target } from 'lucide-react';
 
 const Sidebar = ({ userRole, onLogout, currentView, setCurrentView }) => {
   const nombreCompleto = localStorage.getItem('nombre_completo');
@@ -11,14 +14,17 @@ const Sidebar = ({ userRole, onLogout, currentView, setCurrentView }) => {
     ],
     psicologo: [
       { id: 'dashboard', label: 'Dashboard', icon: Home },
-      { id: 'pacientes', label: 'Mis Pacientes', icon: Users },  // ✅ MANTENER
+      { id: 'pacientes', label: 'Mis Pacientes', icon: Users },
       { id: 'registrar-paciente', label: 'Registrar Paciente', icon: Plus },
-      { id: 'citas', label: 'Gestión de Citas', icon: Calendar },  // ✅ MANTENER
+      { id: 'citas', label: 'Gestión de Citas', icon: Calendar },
     ],
     paciente: [
       { id: 'dashboard', label: 'Inicio', icon: Home },
-      { id: 'registrar', label: 'Registrar Estado', icon: Plus },
+      // ❌ ELIMINADO: { id: 'registrar', label: 'Registrar Estado', icon: Plus },
       { id: 'chat', label: 'Chat de Apoyo', icon: MessageCircle },
+      { id: 'citas', label: 'Mis Citas', icon: Calendar }, // ✅ NUEVO
+      { id: 'ejercicios', label: 'Mis Ejercicios', icon: Target }, // ✅ NUEVO
+      { id: 'historial', label: 'Mi Historial', icon: BarChart3 }, // ✅ MOVIDO AQUÍ
     ]
   };
 
@@ -26,6 +32,7 @@ const Sidebar = ({ userRole, onLogout, currentView, setCurrentView }) => {
 
   return (
     <div className="w-64 h-screen bg-white shadow-lg fixed left-0 top-0 flex flex-col">
+      {/* Header */}
       <div className="p-6 border-b bg-gradient-to-r from-emerald-50 to-blue-50">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-blue-500 rounded-full flex items-center justify-center">
@@ -40,6 +47,7 @@ const Sidebar = ({ userRole, onLogout, currentView, setCurrentView }) => {
         </div>
       </div>
 
+      {/* Menú de navegación */}
       <nav className="p-4 flex-1 space-y-2 overflow-y-auto">
         {items.map(item => {
           const Icon = item.icon;
@@ -60,6 +68,7 @@ const Sidebar = ({ userRole, onLogout, currentView, setCurrentView }) => {
         })}
       </nav>
 
+      {/* Footer con info del usuario y logout */}
       <div className="p-4 border-t">
         <div className="mb-4 p-3 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-lg border border-emerald-100">
           <p className="text-xs text-gray-500">Sesión iniciada como:</p>

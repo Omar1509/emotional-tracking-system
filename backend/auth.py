@@ -108,7 +108,7 @@ async def login(
 
 @router.post("/cambiar-password")
 async def cambiar_password(
-    password_data: schemas.PasswordChange,
+    password_data: schemas.CambioPassword,
     current_user: models.Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

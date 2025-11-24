@@ -1,10 +1,10 @@
 // frontend/src/App.js
-// REEMPLAZAR COMPLETAMENTE EL ARCHIVO App.js
+// ✅ VERSIÓN ACTUALIZADA CON MI HISTORIAL
 
 import React, { useState, useEffect } from 'react';
 import './index.css';
 
-// Importar desde components/ dentro de src/
+// Componentes de Login
 import RoleSelector from './components/Login/RoleSelector';
 import LoginByRole from './components/Login/LoginByRole';
 import Sidebar from './components/Shared/Sidebar';
@@ -22,8 +22,10 @@ import GestionCitas from './components/Psicologo/GestionCitas';
 
 // Componentes Paciente
 import DashboardPaciente from './components/Paciente/DashboardPaciente';
-import RegistroEmocional from './components/Paciente/RegistroEmocional';
 import ChatApoyoRasa from './components/Paciente/ChatApoyoRasa';
+import MisCitas from './components/Paciente/MisCitas';
+import MisEjercicios from './components/Paciente/MisEjercicios';
+import MiHistorial from './components/Paciente/MiHistorial'; // ✅ NUEVO
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -106,17 +108,19 @@ const App = () => {
         );
       }
       
-      // ✅ VISTA DE GESTIÓN DE PACIENTES (AHORA FUNCIONAL)
       if (currentView === 'pacientes') {
-        return <GestionPacientes setCurrentView={setCurrentView} setSelectedPacienteId={setSelectedPatientId} />;
+        return (
+          <GestionPacientes 
+            setCurrentView={setCurrentView} 
+            setSelectedPacienteId={setSelectedPatientId} 
+          />
+        );
       }
       
-      // ✅ VISTA DE GESTIÓN DE CITAS (AHORA FUNCIONAL)
       if (currentView === 'citas') {
         return <GestionCitas setCurrentView={setCurrentView} />;
       }
       
-      // Dashboard por defecto
       return (
         <DashboardPsicologo 
           setCurrentView={setCurrentView}
@@ -127,22 +131,21 @@ const App = () => {
     
     // ============= PACIENTE =============
     if (userRole === 'paciente') {
-      if (currentView === 'registrar') {
-        return <RegistroEmocional setCurrentView={setCurrentView} />;
-      }
-      
       if (currentView === 'chat') {
         return <ChatApoyoRasa setCurrentView={setCurrentView} />;
       }
       
-      if (currentView === 'estadisticas') {
-        return (
-          <div className="text-center p-8">
-            <div className="text-6xl mb-4">📊</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Mis Estadísticas</h2>
-            <p className="text-gray-600">Próximamente: Gráficos y análisis detallado</p>
-          </div>
-        );
+      if (currentView === 'citas') {
+        return <MisCitas setCurrentView={setCurrentView} />;
+      }
+      
+      if (currentView === 'ejercicios') {
+        return <MisEjercicios setCurrentView={setCurrentView} />;
+      }
+      
+      // ✅ NUEVO: Mi Historial Emocional
+      if (currentView === 'historial') {
+        return <MiHistorial setCurrentView={setCurrentView} />;
       }
       
       return <DashboardPaciente setCurrentView={setCurrentView} />;

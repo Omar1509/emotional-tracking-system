@@ -157,7 +157,8 @@ class Cita(Base):
     
     fecha_creacion = Column(DateTime, default=datetime.utcnow)
     fecha_modificacion = Column(DateTime, onupdate=datetime.utcnow)
-    
+    asistio = Column(Boolean, default=None)  
+
     # Relaciones
     paciente = relationship("Usuario", back_populates="citas_como_paciente", foreign_keys=[id_paciente])
     psicologo = relationship("Usuario", back_populates="citas_como_psicologo", foreign_keys=[id_psicologo])
