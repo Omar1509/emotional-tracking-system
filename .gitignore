@@ -98,4 +98,5 @@ coverage.xml
 *.dll
 *.exe
 *.o
-*.so
+*.sobackend/.env
+.env
