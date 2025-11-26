@@ -1,24 +1,30 @@
+// frontend/src/components/Admin/FormularioRegistroPsicologo.js
+// ✅ VERSIÓN ULTRA-CORREGIDA
+
 import React, { useState } from 'react';
 import { CheckCircle, ArrowLeft, AlertCircle } from 'lucide-react';
-import { apiCall } from '../../config/api';
+import { api } from '../../config/api';
 
 const FormularioRegistroPsicologo = ({ setCurrentView }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
+  
+  // ✅ FIX: Estructura correcta de datos
   const [formData, setFormData] = useState({
     primer_nombre: '',
     segundo_nombre: '',
     primer_apellido: '',
     segundo_apellido: '',
-    email_personal: '',
+    cedula: '',  // ✅ AGREGADO: Campo obligatorio
+    correo: '',  // ✅ CAMBIO: era 'email_personal'
     telefono: '',
     direccion: '',
     fecha_nacimiento: '',
     numero_licencia: '',
     titulo_profesional: '',
     especialidad: '',
-    años_experiencia: '',
+    anos_experiencia: '',  // ✅ CAMBIO: sin tilde para evitar problemas
     institucion_formacion: ''
   });
 
@@ -32,19 +38,35 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
     setLoading(true);
 
     try {
+      // ✅ FIX: Preparar datos en el formato correcto
       const dataToSend = {
-        ...formData,
-        años_experiencia: parseInt(formData.años_experiencia)
+        primer_nombre: formData.primer_nombre,
+        segundo_nombre: formData.segundo_nombre || null,
+        primer_apellido: formData.primer_apellido,
+        segundo_apellido: formData.segundo_apellido || null,
+        cedula: formData.cedula,  // ✅ INCLUIDO
+        correo: formData.correo,  // ✅ Nombre correcto
+        telefono: formData.telefono,
+        direccion: formData.direccion,
+        fecha_nacimiento: formData.fecha_nacimiento,
+        numero_licencia: formData.numero_licencia,
+        titulo_profesional: formData.titulo_profesional,
+        especialidad: formData.especialidad || null,
+        anos_experiencia: parseInt(formData.anos_experiencia),
+        institucion_formacion: formData.institucion_formacion
       };
 
-      const response = await apiCall('/register/psicologo', {
-        method: 'POST',
-        body: JSON.stringify(dataToSend)
-      });
+      console.log('📤 Enviando datos:', dataToSend);
+
+      // ✅ FIX: Usar api client correcto
+      const response = await api.post('/admin/register/psicologo', dataToSend);
       
+      console.log('✅ Respuesta del servidor:', response);
       setSuccess(response);
+      
     } catch (err) {
-      setError(err.message);
+      console.error('❌ Error al registrar:', err);
+      setError(err.message || 'Error al registrar psicólogo');
     } finally {
       setLoading(false);
     }
@@ -58,7 +80,9 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-10 h-10 text-green-600" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">¡Psicólogo Registrado Exitosamente!</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              ¡Psicólogo Registrado Exitosamente!
+            </h2>
             <p className="text-gray-600">{success.mensaje}</p>
           </div>
 
@@ -69,13 +93,26 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
             <div className="space-y-3">
               <div className="bg-white rounded-lg p-3">
                 <p className="text-xs text-gray-500 mb-1">Email de acceso</p>
-                <p className="font-mono font-semibold text-gray-800 text-lg">{success.credenciales.email}</p>
+                <p className="font-mono font-semibold text-gray-800 text-lg">
+                  {success.credenciales.email}
+                </p>
               </div>
               <div className="bg-white rounded-lg p-3">
                 <p className="text-xs text-gray-500 mb-1">Contraseña temporal</p>
-                <p className="font-mono font-semibold text-gray-800 text-lg">{success.credenciales.password_temporal}</p>
+                <p className="font-mono font-semibold text-gray-800 text-lg">
+                  {success.credenciales.password_temporal}
+                </p>
               </div>
             </div>
+            
+            {success.credenciales.correo_enviado && (
+              <div className="mt-4 p-3 bg-green-100 rounded-lg">
+                <p className="text-sm text-green-800 flex items-center">
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  ✉️ Credenciales enviadas por correo electrónico
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded">
@@ -84,8 +121,7 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
               <div>
                 <p className="text-sm text-yellow-800 font-semibold">Importante:</p>
                 <p className="text-sm text-yellow-700 mt-1">
-                  Comparte estas credenciales de forma segura con el psicólogo. 
-                  Debe cambiar su contraseña en el primer inicio de sesión.
+                  {success.instrucciones}
                 </p>
               </div>
             </div>
@@ -104,7 +140,7 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto animate-fadeIn">
+    <div className="max-w-4xl mx-auto animate-fadeIn p-6">
       <button
         onClick={() => setCurrentView('dashboard')}
         className="flex items-center text-gray-600 hover:text-gray-800 mb-6 transition-colors"
@@ -115,8 +151,12 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
 
       <div className="bg-white rounded-xl shadow-lg p-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">Registrar Nuevo Psicólogo</h2>
-          <p className="text-gray-600">Completa todos los campos para registrar un profesional</p>
+          <h2 className="text-3xl font-bold text-gray-800 mb-2">
+            Registrar Nuevo Psicólogo
+          </h2>
+          <p className="text-gray-600">
+            Completa todos los campos para registrar un profesional
+          </p>
         </div>
 
         {error && (
@@ -139,6 +179,7 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
                 onChange={handleChange}
                 placeholder="Primer Nombre *"
                 required
+                minLength="2"
                 className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent focus:outline-none"
               />
               <input
@@ -154,6 +195,7 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
                 onChange={handleChange}
                 placeholder="Primer Apellido *"
                 required
+                minLength="2"
                 className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent focus:outline-none"
               />
               <input
@@ -162,6 +204,18 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
                 onChange={handleChange}
                 placeholder="Segundo Apellido"
                 className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent focus:outline-none"
+              />
+              
+              {/* ✅ AGREGADO: Campo Cédula */}
+              <input
+                name="cedula"
+                value={formData.cedula}
+                onChange={handleChange}
+                placeholder="Cédula *"
+                required
+                minLength="10"
+                maxLength="20"
+                className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent focus:outline-none md:col-span-2"
               />
             </div>
           </div>
@@ -172,10 +226,11 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
               📞 Datos de Contacto
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* ✅ CAMBIO: name="correo" en lugar de "email_personal" */}
               <input
-                name="email_personal"
+                name="correo"
                 type="email"
-                value={formData.email_personal}
+                value={formData.correo}
                 onChange={handleChange}
                 placeholder="Email Personal *"
                 required
@@ -187,6 +242,7 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
                 onChange={handleChange}
                 placeholder="Teléfono (ej: +593999999999) *"
                 required
+                pattern="^\+?[0-9]{10,15}$"
                 className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent focus:outline-none"
               />
             </div>
@@ -196,6 +252,7 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
               onChange={handleChange}
               placeholder="Dirección Completa *"
               required
+              minLength="10"
               className="mt-4 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent focus:outline-none"
             />
             <div className="mt-4">
@@ -208,8 +265,12 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
                 value={formData.fecha_nacimiento}
                 onChange={handleChange}
                 required
+                max={new Date(new Date().setFullYear(new Date().getFullYear() - 23)).toISOString().split('T')[0]}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent focus:outline-none"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                El psicólogo debe tener al menos 23 años
+              </p>
             </div>
           </div>
 
@@ -225,6 +286,7 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
                 onChange={handleChange}
                 placeholder="Número de Licencia *"
                 required
+                minLength="5"
                 className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent focus:outline-none"
               />
               <input
@@ -239,13 +301,14 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
                 name="especialidad"
                 value={formData.especialidad}
                 onChange={handleChange}
-                placeholder="Especialidad"
+                placeholder="Especialidad (opcional)"
                 className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent focus:outline-none"
               />
+              {/* ✅ CAMBIO: name="anos_experiencia" sin tilde */}
               <input
-                name="años_experiencia"
+                name="anos_experiencia"
                 type="number"
-                value={formData.años_experiencia}
+                value={formData.anos_experiencia}
                 onChange={handleChange}
                 placeholder="Años de Experiencia *"
                 required
@@ -264,6 +327,19 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
             />
           </div>
 
+          {/* Información sobre credenciales */}
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+            <h4 className="font-semibold text-blue-900 mb-2">
+              🔐 Generación Automática de Credenciales
+            </h4>
+            <ul className="text-sm text-blue-800 space-y-1">
+              <li>✅ Se generará una contraseña temporal automáticamente</li>
+              <li>✅ Las credenciales se enviarán al email del psicólogo</li>
+              <li>✅ Deberá cambiar la contraseña en su primer inicio de sesión</li>
+            </ul>
+          </div>
+
+          {/* Botones */}
           <div className="flex space-x-4 pt-6 border-t">
             <button
               type="button"
@@ -275,7 +351,7 @@ const FormularioRegistroPsicologo = ({ setCurrentView }) => {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-gradient-to-r from-emerald-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:from-emerald-700 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-400 transition-all shadow-lg"
+              className="flex-1 bg-gradient-to-r from-emerald-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:from-emerald-700 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg"
             >
               {loading ? (
                 <span className="flex items-center justify-center">

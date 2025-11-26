@@ -1,8 +1,8 @@
 // frontend/src/components/Shared/Sidebar.js
-// ✅ VERSIÓN ACTUALIZADA CON NUEVAS OPCIONES DE MENÚ
+// ✅ VERSIÓN FINAL CON MENÚ COMPLETO ADMIN
 
 import React from 'react';
-import { Home, Users, Plus, MessageCircle, BarChart3, LogOut, Calendar, FileText, Activity, Target } from 'lucide-react';
+import { Home, Users, Plus, MessageCircle, BarChart3, LogOut, Calendar, Target, FileText, UserCog } from 'lucide-react';
 
 const Sidebar = ({ userRole, onLogout, currentView, setCurrentView }) => {
   const nombreCompleto = localStorage.getItem('nombre_completo');
@@ -10,7 +10,9 @@ const Sidebar = ({ userRole, onLogout, currentView, setCurrentView }) => {
   const menuItems = {
     admin: [
       { id: 'dashboard', label: 'Dashboard', icon: Home },
-      { id: 'registrar-psicologo', label: 'Registrar Psicólogo', icon: Plus }
+      { id: 'psicologos', label: 'Gestión Psicólogos', icon: UserCog },
+      { id: 'registrar-psicologo', label: 'Registrar Psicólogo', icon: Plus },
+      { id: 'reportes', label: 'Reportes', icon: BarChart3 },
     ],
     psicologo: [
       { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -20,11 +22,10 @@ const Sidebar = ({ userRole, onLogout, currentView, setCurrentView }) => {
     ],
     paciente: [
       { id: 'dashboard', label: 'Inicio', icon: Home },
-      // ❌ ELIMINADO: { id: 'registrar', label: 'Registrar Estado', icon: Plus },
       { id: 'chat', label: 'Chat de Apoyo', icon: MessageCircle },
-      { id: 'citas', label: 'Mis Citas', icon: Calendar }, // ✅ NUEVO
-      { id: 'ejercicios', label: 'Mis Ejercicios', icon: Target }, // ✅ NUEVO
-      { id: 'historial', label: 'Mi Historial', icon: BarChart3 }, // ✅ MOVIDO AQUÍ
+      { id: 'citas', label: 'Mis Citas', icon: Calendar },
+      { id: 'ejercicios', label: 'Mis Ejercicios', icon: Target },
+      { id: 'historial', label: 'Mi Historial', icon: BarChart3 },
     ]
   };
 

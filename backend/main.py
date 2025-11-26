@@ -13,6 +13,7 @@ import auth  # ✅ auth está en backend/auth.py (raíz)
 from database import get_db, engine, SessionLocal, init_db
 import models
 import schemas
+from routers import admin
 from dependencies import (
     get_current_user,
     get_current_paciente,
@@ -54,7 +55,7 @@ except Exception as e:
     print(f"⚠️ Error creando tablas: {e}")
 
 # ==================== ENDPOINTS DE AUTENTICACIÓN ====================
-
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 @app.post("/token", response_model=schemas.Token, tags=["Autenticación"])
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),

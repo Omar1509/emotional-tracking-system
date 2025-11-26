@@ -343,3 +343,44 @@ class EjercicioCompletado(Base):
     
     # Relación
     asignacion = relationship("EjercicioAsignado", back_populates="completados")
+# ==================== EJERCICIOS TERAPÉUTICOS ====================
+
+class EjercicioTerapeutico(Base):
+    __tablename__ = "ejercicios_terapeuticos"
+    
+    id_ejercicio = Column(Integer, primary_key=True, index=True)
+    titulo = Column(String(200), nullable=False)
+    descripcion = Column(Text)
+    tipo = Column(String(50))  # respiracion, mindfulness, relajacion, etc.
+    duracion_minutos = Column(Integer)
+    instrucciones = Column(Text)
+    url_recurso = Column(String(500))
+    activo = Column(Boolean, default=True)
+    fecha_creacion = Column(DateTime, default=datetime.utcnow)
+    
+    # Relaciones
+    asignaciones = relationship("AsignacionEjercicio", back_populates="ejercicio")
+
+
+class AsignacionEjercicio(Base):
+    __tablename__ = "asignaciones_ejercicios"
+    
+    id_asignacion = Column(Integer, primary_key=True, index=True)
+    id_paciente = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=False)
+    id_psicologo = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=False)
+    id_ejercicio = Column(Integer, ForeignKey("ejercicios_terapeuticos.id_ejercicio"), nullable=False)
+    
+    fecha_asignacion = Column(DateTime, default=datetime.utcnow)
+    fecha_limite = Column(DateTime)
+    estado = Column(String(20), default="PENDIENTE")  # PENDIENTE, COMPLETADO, VENCIDO
+    notas_psicologo = Column(Text)
+    
+    # Datos de completación
+    fecha_completado = Column(DateTime)
+    calificacion_paciente = Column(Integer)  # 1-5
+    comentario_paciente = Column(Text)
+    
+    # Relaciones
+    paciente = relationship("Usuario", foreign_keys=[id_paciente], backref="ejercicios_asignados")
+    psicologo = relationship("Usuario", foreign_keys=[id_psicologo])
+    ejercicio = relationship("EjercicioTerapeutico", back_populates="asignaciones")

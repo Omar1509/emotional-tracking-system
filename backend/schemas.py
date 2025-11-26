@@ -343,27 +343,53 @@ class RegistroPacienteCompleto(BaseModel):
         return v
 
 class RegistroPsicologoCompleto(BaseModel):
+    """✅ Schema CORREGIDO para registro de psicólogo"""
+    
     primer_nombre: str = Field(min_length=2, max_length=50)
     segundo_nombre: Optional[str] = Field(None, max_length=50)
     primer_apellido: str = Field(min_length=2, max_length=50)
     segundo_apellido: Optional[str] = Field(None, max_length=50)
-    email_personal: EmailStr
+    cedula: str = Field(min_length=10, max_length=20)  # ✅ CAMPO OBLIGATORIO
+    correo: EmailStr  # ✅ CAMBIO: era "email_personal", ahora es "correo"
     telefono: str = Field(pattern=r'^\+?[0-9]{10,15}$')
     direccion: str = Field(min_length=10)
     fecha_nacimiento: date
     numero_licencia: str = Field(min_length=5)
     titulo_profesional: str
     especialidad: Optional[str] = None
-    años_experiencia: int = Field(ge=0, le=50)
+    anos_experiencia: int = Field(ge=0, le=50)  # ✅ Sin tilde para evitar problemas
     institucion_formacion: str
     
     @validator('fecha_nacimiento')
     def validar_edad_profesional(cls, v):
-        today = date.today()
+        from datetime import date as date_type
+        today = date_type.today()
         age = today.year - v.year - ((today.month, today.day) < (v.month, v.day))
         if age < 23:
-            raise ValueError('Edad mínima no cumplida para psicólogo profesional')
+            raise ValueError('Edad mínima no cumplida para psicólogo profesional (23 años)')
+        if age > 80:
+            raise ValueError('Edad inválida')
         return v
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "primer_nombre": "Juan",
+                "segundo_nombre": "Carlos",
+                "primer_apellido": "Pérez",
+                "segundo_apellido": "López",
+                "cedula": "0912345678",
+                "correo": "juan.perez@email.com",
+                "telefono": "+593999999999",
+                "direccion": "Av. Principal 123",
+                "fecha_nacimiento": "1990-01-15",
+                "numero_licencia": "PSI-12345",
+                "titulo_profesional": "Psicólogo Clínico",
+                "especialidad": "Terapia Cognitivo Conductual",
+                "anos_experiencia": 5,
+                "institucion_formacion": "Universidad Central"
+            }
+        }
 
 class RespuestaRegistro(BaseModel):
     mensaje: str

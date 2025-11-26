@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class EmailService:
     def __init__(self):
         self.api_key = os.getenv("SENDGRID_API_KEY")
-        self.from_email = os.getenv("FROM_EMAIL", "noreply@emotional-tracking.com")
+        self.from_email = os.getenv("FROM_EMAIL", "amadoromar15@gmail.com")
         self.app_name = "Sistema de Seguimiento Emocional"
         self.app_url = os.getenv("APP_URL", "http://localhost:3000")
         

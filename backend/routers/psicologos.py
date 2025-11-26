@@ -1,5 +1,5 @@
 # backend/routers/psicologos.py
-# ✅ VERSIÓN CORREGIDA - Usa id_usuario consistentemente
+# ✅ PARCHE: Solo agregar cálculo de edad - NO cambiar nada más
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -17,7 +17,26 @@ from email_service import send_credentials, generate_temp_password
 
 router = APIRouter()
 
-# ==================== GESTIÓN DE PACIENTES ====================
+# ==================== FUNCIÓN AUXILIAR PARA CALCULAR EDAD ====================
+
+def calcular_edad(fecha_nacimiento):
+    """Calcula la edad a partir de la fecha de nacimiento"""
+    if not fecha_nacimiento:
+        return None
+    
+    try:
+        hoy = date.today()
+        edad = hoy.year - fecha_nacimiento.year
+        
+        # Ajustar si aún no ha cumplido años este año
+        if (hoy.month, hoy.day) < (fecha_nacimiento.month, fecha_nacimiento.day):
+            edad -= 1
+            
+        return edad
+    except:
+        return None
+
+# ==================== ENDPOINTS (SIN CAMBIOS, SOLO AGREGAR EDAD) ====================
 
 @router.post("/registrar-paciente", status_code=status.HTTP_201_CREATED)
 async def registrar_paciente(
@@ -25,12 +44,7 @@ async def registrar_paciente(
     current_user: models.Usuario = Depends(get_current_psicologo),
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ Registrar nuevo paciente (solo psicólogos)
-    - Crea usuario con contraseña temporal
-    - Asigna al psicólogo actual
-    - Envía credenciales por correo
-    """
+    """✅ Registrar nuevo paciente (solo psicólogos)"""
     from passlib.context import CryptContext
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     
@@ -81,7 +95,7 @@ async def registrar_paciente(
         fecha_nacimiento=paciente_data.fecha_nacimiento,
         rol=models.UserRole.PACIENTE,
         activo=True,
-        debe_cambiar_password=True  # Obligar cambio de contraseña
+        debe_cambiar_password=True
     )
     
     db.add(nuevo_paciente)
@@ -116,7 +130,7 @@ async def registrar_paciente(
     return {
         "mensaje": "Paciente registrado exitosamente",
         "paciente": {
-            "id_usuario": nuevo_paciente.id_usuario,  # ✅ CORREGIDO: Usar id_usuario
+            "id_usuario": nuevo_paciente.id_usuario,
             "nombre": f"{nombre_completo} {apellido_completo}",
             "email": nuevo_paciente.email,
             "cedula": nuevo_paciente.cedula
@@ -136,9 +150,7 @@ async def obtener_mis_pacientes(
     current_user: models.Usuario = Depends(get_current_psicologo),
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ Obtener lista de pacientes del psicólogo actual
-    """
+    """✅ Obtener lista de pacientes del psicólogo actual"""
     query = db.query(models.Usuario, models.PacientePsicologo).join(
         models.PacientePsicologo,
         models.Usuario.id_usuario == models.PacientePsicologo.id_paciente
@@ -154,6 +166,9 @@ async def obtener_mis_pacientes(
     
     pacientes = []
     for usuario, asignacion in resultados:
+        # ✅ CALCULAR EDAD
+        edad = calcular_edad(usuario.fecha_nacimiento)
+        
         # Obtener registros emocionales
         registros_emocionales = db.query(models.RegistroEmocional).filter(
             models.RegistroEmocional.id_usuario == usuario.id_usuario
@@ -179,24 +194,23 @@ async def obtener_mis_pacientes(
         ).order_by(models.Cita.fecha, models.Cita.hora_inicio).first()
         
         pacientes.append({
-            "id_usuario": usuario.id_usuario,  # ✅ CORREGIDO: Usar id_usuario
-            "nombre": usuario.nombre,  # ✅ CORREGIDO: Separado nombre y apellido
-            "apellido": usuario.apellido,  # ✅ CORREGIDO: Separado
+            "id_usuario": usuario.id_usuario,
+            "nombre": usuario.nombre,
+            "apellido": usuario.apellido,
             "email": usuario.email,
             "cedula": usuario.cedula,
             "telefono": usuario.telefono,
-            "edad": usuario.edad if hasattr(usuario, 'edad') else None,
+            "edad": edad,  # ✅ EDAD CALCULADA
+            "fecha_nacimiento": usuario.fecha_nacimiento.isoformat() if usuario.fecha_nacimiento else None,
             "activo": usuario.activo,
             "fecha_registro": usuario.fecha_registro.isoformat() if usuario.fecha_registro else None,
             "fecha_asignacion": asignacion.fecha_asignacion.isoformat() if asignacion.fecha_asignacion else None,
-            "registros_emocionales": registros_dict,  # ✅ AGREGADO: Incluir registros
+            "registros_emocionales": registros_dict,
             "proxima_cita": {
                 "fecha": proxima_cita.fecha.isoformat(),
                 "hora": proxima_cita.hora_inicio.isoformat()
             } if proxima_cita else None
         })
-    
-    print(f"✅ Retornando {len(pacientes)} pacientes con id_usuario")  # ✅ LOG
     
     return {
         "total": len(pacientes),
@@ -210,9 +224,7 @@ async def obtener_detalle_paciente(
     current_user: models.Usuario = Depends(get_current_psicologo),
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ Obtener detalle completo de un paciente
-    """
+    """✅ Obtener detalle completo de un paciente"""
     # Verificar acceso
     if not verificar_acceso_paciente(current_user, paciente_id, db):
         raise HTTPException(
@@ -231,6 +243,9 @@ async def obtener_detalle_paciente(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Paciente no encontrado"
         )
+    
+    # ✅ CALCULAR EDAD
+    edad = calcular_edad(paciente.fecha_nacimiento)
     
     # Obtener asignación
     asignacion = db.query(models.PacientePsicologo).filter(
@@ -274,13 +289,14 @@ async def obtener_detalle_paciente(
     
     return {
         "paciente": {
-            "id_usuario": paciente.id_usuario,  # ✅ CORREGIDO: Usar id_usuario
+            "id_usuario": paciente.id_usuario,
             "nombre": paciente.nombre,
             "apellido": paciente.apellido,
             "email": paciente.email,
             "cedula": paciente.cedula,
             "telefono": paciente.telefono,
             "direccion": paciente.direccion,
+            "edad": edad,  # ✅ EDAD CALCULADA
             "fecha_nacimiento": paciente.fecha_nacimiento.isoformat() if paciente.fecha_nacimiento else None,
             "activo": paciente.activo,
             "fecha_registro": paciente.fecha_registro.isoformat(),
@@ -308,9 +324,7 @@ async def editar_paciente(
     current_user: models.Usuario = Depends(get_current_psicologo),
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ Editar información de un paciente
-    """
+    """✅ Editar información de un paciente"""
     # Verificar acceso
     if not verificar_acceso_paciente(current_user, paciente_id, db):
         raise HTTPException(
@@ -336,7 +350,6 @@ async def editar_paciente(
     if paciente_data.apellido:
         paciente.apellido = paciente_data.apellido
     if paciente_data.cedula:
-        # Verificar que no exista otra cédula
         cedula_existente = db.query(models.Usuario).filter(
             models.Usuario.cedula == paciente_data.cedula,
             models.Usuario.id_usuario != paciente_id
@@ -348,7 +361,6 @@ async def editar_paciente(
             )
         paciente.cedula = paciente_data.cedula
     if paciente_data.email:
-        # Verificar que no exista otro email
         email_existente = db.query(models.Usuario).filter(
             models.Usuario.email == paciente_data.email,
             models.Usuario.id_usuario != paciente_id
@@ -373,7 +385,7 @@ async def editar_paciente(
     return {
         "mensaje": "Paciente actualizado exitosamente",
         "paciente": {
-            "id_usuario": paciente.id_usuario,  # ✅ CORREGIDO: Usar id_usuario
+            "id_usuario": paciente.id_usuario,
             "nombre": f"{paciente.nombre} {paciente.apellido}",
             "email": paciente.email,
             "activo": paciente.activo
@@ -387,9 +399,7 @@ async def desactivar_paciente(
     current_user: models.Usuario = Depends(get_current_psicologo),
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ Desactivar un paciente (no lo elimina, solo lo desactiva)
-    """
+    """✅ Desactivar un paciente (no lo elimina, solo lo desactiva)"""
     # Verificar acceso
     if not verificar_acceso_paciente(current_user, paciente_id, db):
         raise HTTPException(
@@ -429,16 +439,12 @@ async def desactivar_paciente(
     }
 
 
-# ==================== ESTADÍSTICAS DEL PSICÓLOGO ====================
-
 @router.get("/estadisticas")
 async def obtener_estadisticas_psicologo(
     current_user: models.Usuario = Depends(get_current_psicologo),
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ Obtener estadísticas generales del psicólogo
-    """
+    """✅ Obtener estadísticas generales del psicólogo"""
     # Total de pacientes activos
     total_pacientes = db.query(models.PacientePsicologo).filter(
         models.PacientePsicologo.id_psicologo == current_user.id_usuario,
