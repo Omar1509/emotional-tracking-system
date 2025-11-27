@@ -1,10 +1,10 @@
 # backend/routers/ejercicios.py
-# ✅ Router de ejercicios terapéuticos - CORREGIDO
+# ✅ ROUTER DE EJERCICIOS - CORREGIDO CON URL_RECURSO OPCIONAL
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timedelta
 from pydantic import BaseModel
 
@@ -18,21 +18,21 @@ router = APIRouter()
 
 class EjercicioBase(BaseModel):
     titulo: str
-    descripcion: str = None
-    tipo: str = None
-    duracion_minutos: int = None
-    instrucciones: str = None
-    url_recurso: str = None
+    descripcion: Optional[str] = None
+    tipo: Optional[str] = None
+    duracion_minutos: Optional[int] = None
+    instrucciones: Optional[str] = None
+    url_recurso: Optional[str] = None  # ✅ OPCIONAL
 
 
 class EjercicioResponse(BaseModel):
     id_ejercicio: int
     titulo: str
-    descripcion: str = None
-    tipo: str = None
-    duracion_minutos: int = None
-    instrucciones: str = None
-    url_recurso: str = None
+    descripcion: Optional[str] = None  # ✅ OPCIONAL
+    tipo: Optional[str] = None  # ✅ OPCIONAL
+    duracion_minutos: Optional[int] = None  # ✅ OPCIONAL
+    instrucciones: Optional[str] = None  # ✅ OPCIONAL
+    url_recurso: Optional[str] = None  # ✅ OPCIONAL - ESTE ERA EL PROBLEMA
     activo: bool
     
     class Config:
@@ -42,29 +42,30 @@ class EjercicioResponse(BaseModel):
 class AsignacionCreate(BaseModel):
     id_ejercicio: int
     id_paciente: int
-    fecha_limite: str = None
-    notas_psicologo: str = None
+    fecha_limite: Optional[str] = None
+    notas_psicologo: Optional[str] = None
 
 
 class AsignacionResponse(BaseModel):
     id_asignacion: int
     id_ejercicio: int
     ejercicio_titulo: str
-    ejercicio_descripcion: str = None
-    ejercicio_tipo: str = None
-    duracion_minutos: int = None
+    ejercicio_descripcion: Optional[str] = None
+    ejercicio_tipo: Optional[str] = None
+    ejercicio_instrucciones: Optional[str] = None  # ✅ AGREGADO
+    duracion_minutos: Optional[int] = None
     estado: str
     fecha_asignacion: str
-    fecha_limite: str = None
-    notas_psicologo: str = None
-    fecha_completado: str = None
-    calificacion_paciente: int = None
-    comentario_paciente: str = None
+    fecha_limite: Optional[str] = None
+    notas_psicologo: Optional[str] = None
+    fecha_completado: Optional[str] = None
+    calificacion_paciente: Optional[int] = None
+    comentario_paciente: Optional[str] = None
 
 
 class CompletarEjercicioRequest(BaseModel):
     calificacion: int
-    comentario: str = None
+    comentario: Optional[str] = None
 
 
 # ==================== ENDPOINTS PARA PACIENTES ====================
@@ -94,6 +95,7 @@ async def obtener_mis_ejercicios(
                 "ejercicio_titulo": ejercicio.titulo,
                 "ejercicio_descripcion": ejercicio.descripcion,
                 "ejercicio_tipo": ejercicio.tipo,
+                "ejercicio_instrucciones": ejercicio.instrucciones,
                 "duracion_minutos": ejercicio.duracion_minutos,
                 "estado": asig.estado,
                 "fecha_asignacion": asig.fecha_asignacion.isoformat() if asig.fecha_asignacion else None,
@@ -254,6 +256,7 @@ async def obtener_ejercicios_paciente(
                 "ejercicio_titulo": ejercicio.titulo,
                 "ejercicio_descripcion": ejercicio.descripcion,
                 "ejercicio_tipo": ejercicio.tipo,
+                "ejercicio_instrucciones": ejercicio.instrucciones,
                 "duracion_minutos": ejercicio.duracion_minutos,
                 "estado": asig.estado,
                 "fecha_asignacion": asig.fecha_asignacion.isoformat() if asig.fecha_asignacion else None,

@@ -1,7 +1,3 @@
-# backend/scheduler_emociones_diarias.py
-# ✅ CÁLCULO AUTOMÁTICO DE EMOCIONES DIARIAS DESDE CHAT
-# Ejecutar con APScheduler a las 23:59 todos los días
-
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -39,12 +35,12 @@ def calcular_emociones_diarias():
                 fin_dia = datetime.combine(fecha_hoy, datetime.max.time())
                 
                 mensajes_hoy = list(mongodb_service.emotional_texts.find({
-                    "user_id": paciente.id_usuario,
+                    "user_id": str(paciente.id_usuario),
                     "timestamp": {
                         "$gte": inicio_dia,
                         "$lte": fin_dia
                     },
-                    "source": "chat"
+                    "source": "chat_rasa"
                 }))
                 
                 if not mensajes_hoy:
@@ -65,10 +61,12 @@ def calcular_emociones_diarias():
                 
                 for mensaje in mensajes_hoy:
                     try:
-                        emotions = mensaje.get('emotions', {})
-                        all_emotions = emotions.get('all_emotions', {})
+                        # Obtener análisis emocional
+                        emotional_analysis = mensaje.get('emotional_analysis', {})
+                        emotions = emotional_analysis.get('emotions', {})
+                        scores = emotions.get('scores', {})
                         
-                        # Mapeo de emociones en español
+                        # Mapeo de emociones
                         emotion_mapping = {
                             'alegría': 'alegria',
                             'alegria': 'alegria',
@@ -84,13 +82,13 @@ def calcular_emociones_diarias():
                             'ira': 'enojo'
                         }
                         
-                        for emocion_original, valor in all_emotions.items():
+                        for emocion_original, valor in scores.items():
                             emocion_normalizada = emotion_mapping.get(emocion_original.lower())
                             if emocion_normalizada and emocion_normalizada in emociones_suma:
                                 emociones_suma[emocion_normalizada] += float(valor)
                         
                         # Acumular nivel de riesgo
-                        risk_assessment = mensaje.get('risk_assessment', {})
+                        risk_assessment = emotional_analysis.get('risk_assessment', {})
                         risk_score = risk_assessment.get('score', 0)
                         nivel_riesgo_suma += float(risk_score)
                         
@@ -100,11 +98,11 @@ def calcular_emociones_diarias():
                 
                 # Calcular promedios
                 emociones_promedio = {
-                    emocion: round(suma / total_mensajes, 2)
+                    emocion: round(suma / total_mensajes, 4)
                     for emocion, suma in emociones_suma.items()
                 }
                 
-                nivel_riesgo_promedio = round(nivel_riesgo_suma / total_mensajes, 2)
+                nivel_riesgo_promedio = round(nivel_riesgo_suma / total_mensajes, 4)
                 
                 # Determinar emoción dominante
                 emocion_dominante = max(emociones_promedio.items(), key=lambda x: x[1])[0]
@@ -151,6 +149,8 @@ def calcular_emociones_diarias():
                 
             except Exception as e:
                 print(f"  ❌ Error procesando paciente {paciente.id_usuario}: {e}")
+                import traceback
+                traceback.print_exc()
                 db.rollback()
                 continue
         
@@ -158,6 +158,8 @@ def calcular_emociones_diarias():
         
     except Exception as e:
         print(f"❌ Error general en cálculo de emociones: {e}")
+        import traceback
+        traceback.print_exc()
         db.rollback()
     finally:
         db.close()
@@ -179,27 +181,20 @@ def iniciar_scheduler():
         replace_existing=True
     )
     
-    # OPCIONAL: Ejecutar también al inicio para calcular el día actual
-    # scheduler.add_job(
-    #     calcular_emociones_diarias,
-    #     'date',
-    #     run_date=datetime.now(),
-    #     id='calcular_emociones_inicial'
-    # )
-    
     scheduler.start()
     print("🕐 Scheduler iniciado - Cálculo de emociones diarias a las 23:59")
     
     return scheduler
 
 
-# ==================== ENDPOINT MANUAL PARA TESTING ====================
+# ==================== ROUTER PARA ENDPOINTS ====================
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 
-router = APIRouter(prefix="/emociones-diarias", tags=["Emociones Diarias"])
+# ✅ FIX CRÍTICO: Eliminar el prefix duplicado
+router = APIRouter(tags=["Emociones Diarias"])
 
 @router.post("/calcular-ahora")
 async def calcular_emociones_ahora(
@@ -216,13 +211,15 @@ async def calcular_emociones_ahora(
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
-        return {
-            "error": str(e),
-            "mensaje": "Error al calcular emociones"
-        }
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al calcular emociones: {str(e)}"
+        )
 
 
-@router.get("/emociones-diarias/{id_usuario}")
+@router.get("/{id_usuario}")
 async def obtener_emociones_diarias(
     id_usuario: int,
     dias: int = 30,
@@ -230,30 +227,40 @@ async def obtener_emociones_diarias(
 ):
     """
     ✅ Obtiene las emociones diarias de un usuario
+    
+    URL correcta: GET /api/emociones-diarias/{id_usuario}?dias=30
     """
     from datetime import timedelta
     
-    fecha_inicio = date.today() - timedelta(days=dias)
-    
-    emociones = db.query(models.EmocionDiaria).filter(
-        models.EmocionDiaria.id_usuario == id_usuario,
-        models.EmocionDiaria.fecha >= fecha_inicio
-    ).order_by(models.EmocionDiaria.fecha.desc()).all()
-    
-    return {
-        "emociones_diarias": [
-            {
-                "fecha": emocion.fecha.isoformat(),
-                "emocion_dominante": emocion.emocion_dominante,
-                "alegria_promedio": emocion.alegria_promedio,
-                "tristeza_promedio": emocion.tristeza_promedio,
-                "ansiedad_promedio": emocion.ansiedad_promedio,
-                "enojo_promedio": emocion.enojo_promedio,
-                "miedo_promedio": emocion.miedo_promedio,
-                "nivel_riesgo_promedio": emocion.nivel_riesgo_promedio,
-                "total_interacciones": emocion.total_interacciones
-            }
-            for emocion in emociones
-        ],
-        "total_dias": len(emociones)
-    }
+    try:
+        fecha_inicio = date.today() - timedelta(days=dias)
+        
+        emociones = db.query(models.EmocionDiaria).filter(
+            models.EmocionDiaria.id_usuario == id_usuario,
+            models.EmocionDiaria.fecha >= fecha_inicio
+        ).order_by(models.EmocionDiaria.fecha.desc()).all()
+        
+        return {
+            "emociones_diarias": [
+                {
+                    "fecha": emocion.fecha.isoformat(),
+                    "emocion_dominante": emocion.emocion_dominante,
+                    "alegria_promedio": float(emocion.alegria_promedio or 0),
+                    "tristeza_promedio": float(emocion.tristeza_promedio or 0),
+                    "ansiedad_promedio": float(emocion.ansiedad_promedio or 0),
+                    "enojo_promedio": float(emocion.enojo_promedio or 0),
+                    "miedo_promedio": float(emocion.miedo_promedio or 0),
+                    "nivel_riesgo_promedio": float(emocion.nivel_riesgo_promedio or 0),
+                    "total_interacciones": emocion.total_interacciones or 0
+                }
+                for emocion in emociones
+            ],
+            "total_dias": len(emociones)
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error obteniendo emociones: {str(e)}"
+        )

@@ -1,19 +1,21 @@
+// frontend/src/components/Psicologo/FormularioRegistroPaciente.js
+// ✅ VERSIÓN ULTRA-CORREGIDA CON TODAS LAS VALIDACIONES
+
 import React, { useState } from 'react';
-import { User, Mail, Phone, MapPin, Calendar, CreditCard, ArrowLeft, Check } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Calendar, CreditCard, ArrowLeft, Check, AlertCircle } from 'lucide-react';
 import API_URL from '../../config/api';
 
 const FormularioRegistroPaciente = ({ setCurrentView }) => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   
-  // ✅ DATOS CORREGIDOS - Coinciden con PacienteRegistro del backend
   const [formData, setFormData] = useState({
     primer_nombre: '',
     segundo_nombre: '',
     primer_apellido: '',
     segundo_apellido: '',
     cedula: '',
-    correo: '',  // ✅ CAMBIO: "correo" no "email"
+    correo: '',
     telefono: '',
     direccion: '',
     fecha_nacimiento: '',
@@ -29,60 +31,199 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
 
   const [errors, setErrors] = useState({});
 
+  // ✅ VALIDAR DOMINIO DE CORREO
+  const validarDominioCorreo = (email) => {
+    const dominiosValidos = [
+      'gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 
+      'icloud.com', 'live.com', 'msn.com', 'protonmail.com',
+      'unemi.edu.ec' // Dominio de tu universidad
+    ];
+    
+    const regex = /^[^\s@]+@([^\s@]+\.[^\s@]+)$/;
+    const match = email.match(regex);
+    
+    if (!match) return false;
+    
+    const dominio = match[1].toLowerCase();
+    
+    // Verificar si el dominio está en la lista o termina con un TLD válido
+    const esValido = dominiosValidos.includes(dominio) || 
+                     /\.(com|net|org|edu|ec|es|mx|ar|co|cl|pe|ve)$/i.test(dominio);
+    
+    return esValido;
+  };
+
+  // ✅ VALIDAR SOLO LETRAS Y ESPACIOS (para nombres)
+  const validarSoloLetras = (texto) => {
+    return /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(texto);
+  };
+
+  // ✅ VALIDAR FECHA NO FUTURA
+  const validarFechaNoFutura = (fecha) => {
+    const fechaSeleccionada = new Date(fecha);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0); // Resetear hora para comparar solo fechas
+    return fechaSeleccionada <= hoy;
+  };
+
+  // ✅ CALCULAR EDAD MÍNIMA (debe tener al menos 5 años)
+  const validarEdadMinima = (fecha) => {
+    const fechaNacimiento = new Date(fecha);
+    const hoy = new Date();
+    const edad = hoy.getFullYear() - fechaNacimiento.getFullYear();
+    const mesActual = hoy.getMonth();
+    const mesNacimiento = fechaNacimiento.getMonth();
+    
+    if (mesActual < mesNacimiento || (mesActual === mesNacimiento && hoy.getDate() < fechaNacimiento.getDate())) {
+      return edad - 1 >= 5;
+    }
+    
+    return edad >= 5;
+  };
+
+  // ✅ FUNCIÓN PARA CAPITALIZAR AUTOMÁTICAMENTE
+  const capitalizarTexto = (texto) => {
+    return texto
+      .toLowerCase()
+      .split(' ')
+      .map(palabra => palabra.charAt(0).toUpperCase() + palabra.slice(1))
+      .join(' ');
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    // ✅ VALIDACIÓN EN TIEMPO REAL PARA CÉDULA (solo números, máximo 10)
+    if (name === 'cedula') {
+      const soloNumeros = value.replace(/\D/g, ''); // Eliminar todo lo que no sea número
+      if (soloNumeros.length <= 10) {
+        setFormData(prev => ({ ...prev, [name]: soloNumeros }));
+      }
+    }
+    // ✅ VALIDACIÓN EN TIEMPO REAL PARA TELÉFONOS (solo números, máximo 10)
+    else if (name === 'telefono' || name === 'contacto_emergencia_telefono') {
+      const soloNumeros = value.replace(/\D/g, '');
+      if (soloNumeros.length <= 10) {
+        setFormData(prev => ({ ...prev, [name]: soloNumeros }));
+      }
+    }
+    // ✅ VALIDACIÓN EN TIEMPO REAL PARA NOMBRES (solo letras y capitalización automática)
+    else if (['primer_nombre', 'segundo_nombre', 'primer_apellido', 'segundo_apellido', 'contacto_emergencia_nombre', 'contacto_emergencia_relacion'].includes(name)) {
+      if (value === '' || validarSoloLetras(value)) {
+        const valorCapitalizado = value === '' ? '' : capitalizarTexto(value);
+        setFormData(prev => ({ ...prev, [name]: valorCapitalizado }));
+      }
+    }
+    else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+    
+    // Limpiar error del campo
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
 
+    // ✅ PRIMER NOMBRE (OBLIGATORIO)
     if (!formData.primer_nombre.trim()) {
       newErrors.primer_nombre = 'El primer nombre es obligatorio';
+    } else if (!validarSoloLetras(formData.primer_nombre)) {
+      newErrors.primer_nombre = 'El nombre solo puede contener letras';
+    } else if (formData.primer_nombre.trim().length < 2) {
+      newErrors.primer_nombre = 'El nombre debe tener al menos 2 caracteres';
     }
+
+    // ✅ SEGUNDO NOMBRE (OPCIONAL, pero validar si existe)
+    if (formData.segundo_nombre.trim() && !validarSoloLetras(formData.segundo_nombre)) {
+      newErrors.segundo_nombre = 'El segundo nombre solo puede contener letras';
+    }
+
+    // ✅ PRIMER APELLIDO (OBLIGATORIO)
     if (!formData.primer_apellido.trim()) {
       newErrors.primer_apellido = 'El primer apellido es obligatorio';
+    } else if (!validarSoloLetras(formData.primer_apellido)) {
+      newErrors.primer_apellido = 'El apellido solo puede contener letras';
+    } else if (formData.primer_apellido.trim().length < 2) {
+      newErrors.primer_apellido = 'El apellido debe tener al menos 2 caracteres';
     }
+
+    // ✅ SEGUNDO APELLIDO (OPCIONAL, pero validar si existe)
+    if (formData.segundo_apellido.trim() && !validarSoloLetras(formData.segundo_apellido)) {
+      newErrors.segundo_apellido = 'El segundo apellido solo puede contener letras';
+    }
+
+    // ✅ CÉDULA (EXACTAMENTE 10 DÍGITOS)
     if (!formData.cedula.trim()) {
       newErrors.cedula = 'La cédula es obligatoria';
-    } else if (formData.cedula.length < 10) {
-      newErrors.cedula = 'La cédula debe tener al menos 10 caracteres';
+    } else if (formData.cedula.length !== 10) {
+      newErrors.cedula = 'La cédula debe tener exactamente 10 dígitos';
+    } else if (!/^\d{10}$/.test(formData.cedula)) {
+      newErrors.cedula = 'La cédula solo puede contener números';
     }
+
+    // ✅ CORREO (CON VALIDACIÓN DE DOMINIO)
     if (!formData.correo.trim()) {
       newErrors.correo = 'El correo electrónico es obligatorio';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.correo)) {
-      newErrors.correo = 'El correo electrónico no es válido';
+      newErrors.correo = 'El formato del correo no es válido';
+    } else if (!validarDominioCorreo(formData.correo)) {
+      newErrors.correo = 'El dominio del correo no es válido. Use dominios como gmail.com, hotmail.com, etc.';
     }
+
+    // ✅ TELÉFONO (EXACTAMENTE 10 DÍGITOS)
     if (!formData.telefono.trim()) {
       newErrors.telefono = 'El teléfono es obligatorio';
-    } else if (formData.telefono.length < 10) {
-      newErrors.telefono = 'El teléfono debe tener al menos 10 dígitos';
+    } else if (formData.telefono.length !== 10) {
+      newErrors.telefono = 'El teléfono debe tener exactamente 10 dígitos';
+    } else if (!/^\d{10}$/.test(formData.telefono)) {
+      newErrors.telefono = 'El teléfono solo puede contener números';
     }
-    if (!formData.direccion.trim() || formData.direccion.length < 10) {
+
+    // ✅ DIRECCIÓN
+    if (!formData.direccion.trim()) {
+      newErrors.direccion = 'La dirección es obligatoria';
+    } else if (formData.direccion.length < 10) {
       newErrors.direccion = 'La dirección debe tener al menos 10 caracteres';
     }
+
+    // ✅ FECHA DE NACIMIENTO (NO FUTURA, EDAD MÍNIMA)
     if (!formData.fecha_nacimiento) {
       newErrors.fecha_nacimiento = 'La fecha de nacimiento es obligatoria';
+    } else if (!validarFechaNoFutura(formData.fecha_nacimiento)) {
+      newErrors.fecha_nacimiento = 'La fecha de nacimiento no puede ser futura';
+    } else if (!validarEdadMinima(formData.fecha_nacimiento)) {
+      newErrors.fecha_nacimiento = 'El paciente debe tener al menos 5 años';
     }
-    if (!formData.contacto_emergencia_nombre.trim() || formData.contacto_emergencia_nombre.length < 5) {
-      newErrors.contacto_emergencia_nombre = 'El nombre del contacto de emergencia debe tener al menos 5 caracteres';
+
+    // ✅ GÉNERO
+    if (!formData.genero) {
+      newErrors.genero = 'El género es obligatorio';
     }
+
+    // ✅ CONTACTO DE EMERGENCIA
+    if (!formData.contacto_emergencia_nombre.trim()) {
+      newErrors.contacto_emergencia_nombre = 'El nombre del contacto de emergencia es obligatorio';
+    } else if (formData.contacto_emergencia_nombre.length < 5) {
+      newErrors.contacto_emergencia_nombre = 'El nombre debe tener al menos 5 caracteres';
+    }
+
     if (!formData.contacto_emergencia_telefono.trim()) {
       newErrors.contacto_emergencia_telefono = 'El teléfono de emergencia es obligatorio';
+    } else if (formData.contacto_emergencia_telefono.length !== 10) {
+      newErrors.contacto_emergencia_telefono = 'El teléfono debe tener exactamente 10 dígitos';
     }
+
     if (!formData.contacto_emergencia_relacion.trim()) {
       newErrors.contacto_emergencia_relacion = 'La relación es obligatoria';
     }
-    if (!formData.motivo_consulta.trim() || formData.motivo_consulta.length < 20) {
+
+    // ✅ MOTIVO DE CONSULTA
+    if (!formData.motivo_consulta.trim()) {
+      newErrors.motivo_consulta = 'El motivo de consulta es obligatorio';
+    } else if (formData.motivo_consulta.length < 20) {
       newErrors.motivo_consulta = 'El motivo de consulta debe tener al menos 20 caracteres';
     }
 
@@ -94,6 +235,13 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
     e.preventDefault();
 
     if (!validateForm()) {
+      // Scroll al primer error
+      const primerError = Object.keys(errors)[0];
+      const elemento = document.getElementsByName(primerError)[0];
+      if (elemento) {
+        elemento.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        elemento.focus();
+      }
       return;
     }
 
@@ -178,6 +326,21 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
         <p className="text-gray-600 mt-2">Complete toda la información del paciente. Se enviarán las credenciales por correo.</p>
       </div>
 
+      {/* Alertas de validación global */}
+      {Object.keys(errors).length > 0 && (
+        <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+          <div className="flex items-center mb-2">
+            <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+            <h3 className="text-red-800 font-semibold">Por favor corrige los siguientes errores:</h3>
+          </div>
+          <ul className="text-sm text-red-700 space-y-1 ml-7">
+            {Object.values(errors).map((error, index) => (
+              <li key={index}>• {error}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Formulario */}
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-8 space-y-6">
         
@@ -203,6 +366,7 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
                   errors.primer_nombre ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Juan"
+                maxLength={50}
               />
               {errors.primer_nombre && (
                 <p className="text-red-500 text-sm mt-1">{errors.primer_nombre}</p>
@@ -212,16 +376,22 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
             {/* Segundo Nombre */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Segundo Nombre
+                Segundo Nombre <span className="text-gray-400">(Opcional)</span>
               </label>
               <input
                 type="text"
                 name="segundo_nombre"
                 value={formData.segundo_nombre}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                placeholder="Carlos (opcional)"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                  errors.segundo_nombre ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Carlos"
+                maxLength={50}
               />
+              {errors.segundo_nombre && (
+                <p className="text-red-500 text-sm mt-1">{errors.segundo_nombre}</p>
+              )}
             </div>
 
             {/* Primer Apellido */}
@@ -238,6 +408,7 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
                   errors.primer_apellido ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Pérez"
+                maxLength={50}
               />
               {errors.primer_apellido && (
                 <p className="text-red-500 text-sm mt-1">{errors.primer_apellido}</p>
@@ -247,16 +418,22 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
             {/* Segundo Apellido */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Segundo Apellido
+                Segundo Apellido <span className="text-gray-400">(Opcional)</span>
               </label>
               <input
                 type="text"
                 name="segundo_apellido"
                 value={formData.segundo_apellido}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                placeholder="González (opcional)"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                  errors.segundo_apellido ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="García"
+                maxLength={50}
               />
+              {errors.segundo_apellido && (
+                <p className="text-red-500 text-sm mt-1">{errors.segundo_apellido}</p>
+              )}
             </div>
 
             {/* Cédula */}
@@ -276,12 +453,37 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
                     errors.cedula ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder="1234567890"
-                  maxLength="20"
+                  placeholder="0123456789"
+                  maxLength={10}
                 />
               </div>
+              <p className="text-xs text-gray-500 mt-1">Exactamente 10 dígitos</p>
               {errors.cedula && (
                 <p className="text-red-500 text-sm mt-1">{errors.cedula}</p>
+              )}
+            </div>
+
+            {/* Género */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Género <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="genero"
+                value={formData.genero}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                  errors.genero ? 'border-red-500' : 'border-gray-300'
+                }`}
+              >
+                <option value="">Seleccionar...</option>
+                <option value="masculino">Masculino</option>
+                <option value="femenino">Femenino</option>
+                <option value="otro">Otro</option>
+                <option value="prefiero_no_decir">Prefiero no decir</option>
+              </select>
+              {errors.genero && (
+                <p className="text-red-500 text-sm mt-1">{errors.genero}</p>
               )}
             </div>
 
@@ -299,33 +501,16 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
                   name="fecha_nacimiento"
                   value={formData.fecha_nacimiento}
                   onChange={handleChange}
+                  max={new Date().toISOString().split('T')[0]} // No permitir fechas futuras
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
                     errors.fecha_nacimiento ? 'border-red-500' : 'border-gray-300'
                   }`}
                 />
               </div>
+              <p className="text-xs text-gray-500 mt-1">No se permiten fechas futuras</p>
               {errors.fecha_nacimiento && (
                 <p className="text-red-500 text-sm mt-1">{errors.fecha_nacimiento}</p>
               )}
-            </div>
-
-            {/* Género */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Género
-              </label>
-              <select
-                name="genero"
-                value={formData.genero}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Seleccionar...</option>
-                <option value="masculino">Masculino</option>
-                <option value="femenino">Femenino</option>
-                <option value="otro">Otro</option>
-                <option value="prefiero_no_decir">Prefiero no decir</option>
-              </select>
             </div>
           </div>
         </div>
@@ -333,13 +518,13 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
         {/* Información de Contacto */}
         <div>
           <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center space-x-2">
-            <Mail className="w-5 h-5 text-blue-600" />
+            <Phone className="w-5 h-5 text-blue-600" />
             <span>Información de Contacto</span>
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Correo */}
-            <div className="md:col-span-2">
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Correo Electrónico <span className="text-red-500">*</span>
               </label>
@@ -355,15 +540,13 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
                     errors.correo ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder="ejemplo@correo.com"
+                  placeholder="ejemplo@gmail.com"
                 />
               </div>
+              <p className="text-xs text-gray-500 mt-1">Dominios válidos: gmail.com, hotmail.com, etc.</p>
               {errors.correo && (
                 <p className="text-red-500 text-sm mt-1">{errors.correo}</p>
               )}
-              <p className="text-sm text-gray-500 mt-1">
-                ✉️ Se enviarán las credenciales de acceso a este correo
-              </p>
             </div>
 
             {/* Teléfono */}
@@ -383,16 +566,18 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
                     errors.telefono ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder="+593 999 999 999"
+                  placeholder="0999999999"
+                  maxLength={10}
                 />
               </div>
+              <p className="text-xs text-gray-500 mt-1">Exactamente 10 dígitos (sin espacios ni guiones)</p>
               {errors.telefono && (
                 <p className="text-red-500 text-sm mt-1">{errors.telefono}</p>
               )}
             </div>
 
             {/* Dirección */}
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Dirección <span className="text-red-500">*</span>
               </label>
@@ -456,8 +641,10 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
                 className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
                   errors.contacto_emergencia_telefono ? 'border-red-500' : 'border-gray-300'
                 }`}
-                placeholder="+593 999 999 999"
+                placeholder="0999999999"
+                maxLength={10}
               />
+              <p className="text-xs text-gray-500 mt-1">10 dígitos</p>
               {errors.contacto_emergencia_telefono && (
                 <p className="text-red-500 text-sm mt-1">{errors.contacto_emergencia_telefono}</p>
               )}
@@ -547,6 +734,9 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
                 }`}
                 placeholder="Describe el motivo de la consulta (mínimo 20 caracteres)..."
               />
+              <p className="text-xs text-gray-500 mt-1">
+                {formData.motivo_consulta.length}/20 caracteres mínimos
+              </p>
               {errors.motivo_consulta && (
                 <p className="text-red-500 text-sm mt-1">{errors.motivo_consulta}</p>
               )}
@@ -560,7 +750,6 @@ const FormularioRegistroPaciente = ({ setCurrentView }) => {
           <ul className="text-sm text-blue-800 space-y-1">
             <li>✅ Se generará una contraseña temporal automáticamente</li>
             <li>✅ Las credenciales se enviarán al correo del paciente</li>
-            <li>✅ El paciente deberá cambiar la contraseña en su primer inicio de sesión</li>
             <li>✅ No se mostrará la contraseña temporal por seguridad</li>
           </ul>
         </div>

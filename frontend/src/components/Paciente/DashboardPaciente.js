@@ -1,6 +1,5 @@
 // frontend/src/components/Paciente/DashboardPaciente.js
-// ✅ VERSIÓN ACTUALIZADA - SIN REGISTRO MANUAL DE EMOCIONES
-// Las emociones se calculan automáticamente desde el chat
+// ✅ VERSIÓN CORREGIDA - Manejo robusto de errores
 
 import React, { useState, useEffect } from 'react';
 import { api } from '../../config/api';
@@ -23,10 +22,11 @@ const DashboardPaciente = ({ setCurrentView }) => {
       const usuarioData = JSON.parse(localStorage.getItem('user'));
       setUsuario(usuarioData);
 
-      // Cargar próxima cita
+      // ✅ Cargar próxima cita
       try {
         const citasResponse = await api.get('/citas/paciente/mis-citas');
-        const citasPendientes = citasResponse.citas.filter(
+        const citasData = citasResponse?.citas || [];
+        const citasPendientes = citasData.filter(
           cita => cita.estado === 'programada' && !cita.ya_paso
         );
         if (citasPendientes.length > 0) {
@@ -34,30 +34,57 @@ const DashboardPaciente = ({ setCurrentView }) => {
         }
       } catch (error) {
         console.error('Error cargando citas:', error);
+        setProximaCita(null);
       }
 
-      // Cargar ejercicios pendientes
+      // ✅ FIX DEFINITIVO: El backend devuelve ARRAY DIRECTO
       try {
         const ejerciciosResponse = await api.get('/ejercicios/mis-ejercicios');
-        const pendientes = ejerciciosResponse.ejercicios_asignados.filter(
-          ej => ej.esta_activo && ej.estado !== 'completado'
-        );
+        console.log('📦 Respuesta de ejercicios:', ejerciciosResponse);
+        
+        // El backend devuelve directamente un array, NO un objeto
+        let ejerciciosData = [];
+        
+        if (Array.isArray(ejerciciosResponse)) {
+          // ✅ CASO CORRECTO: Array directo
+          ejerciciosData = ejerciciosResponse;
+        } else {
+          console.warn('⚠️ Estructura inesperada (se esperaba array):', ejerciciosResponse);
+          ejerciciosData = [];
+        }
+
+        console.log('✅ Total ejercicios:', ejerciciosData.length);
+
+        // Filtrar solo los NO completados
+        const pendientes = ejerciciosData.filter(ej => {
+          const estado = ej?.estado?.toUpperCase();
+          const noCompletado = estado !== 'COMPLETADO' && estado !== 'COMPLETED';
+          
+          console.log(`📋 Ejercicio ${ej?.id_asignacion}: estado="${estado}", incluir=${noCompletado}`);
+          
+          return noCompletado;
+        });
+        
+        console.log('✅ Ejercicios pendientes:', pendientes.length);
         setEjerciciosPendientes(pendientes.slice(0, 3));
       } catch (error) {
-        console.error('Error cargando ejercicios:', error);
+        console.error('❌ Error cargando ejercicios:', error);
+        setEjerciciosPendientes([]);
       }
 
-      // ✅ Cargar emoción del día (calculada automáticamente desde el chat)
+      // ✅ Cargar emoción del día
       try {
         const emocionResponse = await api.get(
-          `/emociones-diarias/emociones-diarias/${usuarioData.id_usuario}?dias=1`
+          `/emociones-diarias/${usuarioData.id_usuario}?dias=1`
         );
 
-        if (emocionResponse.emociones_diarias.length > 0) {
-          setEmocionHoy(emocionResponse.emociones_diarias[0]);
+        const emocionesData = emocionResponse?.emociones_diarias || [];
+        if (emocionesData.length > 0) {
+          setEmocionHoy(emocionesData[0]);
         }
       } catch (error) {
         console.error('Error cargando emoción:', error);
+        setEmocionHoy(null);
       }
 
       setLoading(false);
@@ -107,9 +134,10 @@ const DashboardPaciente = ({ setCurrentView }) => {
     const iconos = {
       'respiracion': '🌬️',
       'meditacion': '🧘',
-      'escritura': '✍️',
+      'escritura': '✏️',
       'actividad_fisica': '🏃',
-      'mindfulness': '🌸'
+      'mindfulness': '🌸',
+      'relajacion': '😌'
     };
     return iconos[tipo] || '📋';
   };
@@ -160,7 +188,7 @@ const DashboardPaciente = ({ setCurrentView }) => {
                   {emocionHoy.emocion_dominante}
                 </h2>
                 <p className="text-sm text-gray-600 mb-4">
-                  📱 Detectado automáticamente desde tus conversaciones
+                  💬 Detectado automáticamente desde tus conversaciones
                 </p>
                 <div className="inline-flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full text-sm text-gray-700">
                   💬 {emocionHoy.total_interacciones} interacciones hoy
@@ -225,28 +253,49 @@ const DashboardPaciente = ({ setCurrentView }) => {
             
             {ejerciciosPendientes.length > 0 ? (
               <div className="space-y-3">
-                {ejerciciosPendientes.map((ejercicio) => (
-                  <div
-                    key={ejercicio.id_asignacion}
-                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-2xl shadow-sm flex-shrink-0">
-                      {obtenerIconoEjercicio(ejercicio.ejercicio.tipo)}
+                {ejerciciosPendientes.map((ej) => {
+                  // ✅ Los datos vienen en formato plano desde el backend
+                  // Estructura: { ejercicio_titulo, ejercicio_tipo, duracion_minutos, ... }
+                  const titulo = ej?.ejercicio_titulo || 'Ejercicio';
+                  const tipo = ej?.ejercicio_tipo || 'respiracion';
+                  const duracion = ej?.duracion_minutos || 0;
+                  const estado = ej?.estado || 'PENDIENTE';
+                  
+                  console.log('🎯 Renderizando:', {
+                    id: ej?.id_asignacion,
+                    titulo,
+                    tipo,
+                    duracion,
+                    estado
+                  });
+                  
+                  return (
+                    <div
+                      key={ej?.id_asignacion || Math.random()}
+                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-2xl shadow-sm flex-shrink-0">
+                        {obtenerIconoEjercicio(tipo)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-800 truncate">
+                          {titulo}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {duracion} min
+                        </p>
+                      </div>
+                      <div className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-semibold">
+                        {estado}
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-800 truncate">
-                        {ejercicio.ejercicio.titulo}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {ejercicio.ejercicio.duracion_minutos} min • {ejercicio.veces_completadas}/{ejercicio.veces_requeridas}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <p>No tienes ejercicios pendientes</p>
+                <p className="text-xs mt-2 text-gray-400">Los ejercicios asignados aparecerán aquí</p>
               </div>
             )}
           </div>

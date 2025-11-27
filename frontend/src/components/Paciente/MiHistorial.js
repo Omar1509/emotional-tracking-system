@@ -1,5 +1,5 @@
 // frontend/src/components/Paciente/MiHistorial.js
-// ✅ COMPONENTE DE HISTORIAL EMOCIONAL PARA PACIENTE
+// ✅ COMPONENTE DE HISTORIAL EMOCIONAL PARA PACIENTE - CORREGIDO
 
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, TrendingUp, TrendingDown, Calendar, Activity } from 'lucide-react';
@@ -33,10 +33,10 @@ const MiHistorial = ({ setCurrentView }) => {
         setRegistros([]);
       }
 
-      // Cargar emociones diarias (calculadas desde el chat)
+      // ✅ FIX: Cargar emociones diarias con URL correcta
       try {
         const emocionesResponse = await api.get(
-          `/emociones-diarias/emociones-diarias/${user.id_usuario}?dias=${periodo}`
+          `/emociones-diarias/${user.id_usuario}?dias=${periodo}`
         );
         setEmocionesDiarias(emocionesResponse.emociones_diarias || []);
         

@@ -1,5 +1,5 @@
 # backend/routers/pacientes.py
-# ✅ ROUTER DE PACIENTES - CORREGIDO
+# ✅ ROUTER DE PACIENTES - VERSIÓN CORREGIDA CON CAMPOS CORRECTOS
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -119,15 +119,18 @@ async def obtener_registros_emocionales(
             models.RegistroEmocional.fecha_hora.desc()
         ).limit(limite).all()
 
+        # ✅ FIX CRÍTICO: Usar los nombres de campos correctos del modelo
         registros_dict = [
             {
                 "id_registro": reg.id_registro,
                 "fecha_hora": reg.fecha_hora.isoformat(),
                 "emocion_principal": reg.emocion_principal,
                 "nivel_animo": reg.nivel_animo,
-                "intensidad_emocional": reg.intensidad_emocional,
+                "intensidad_emocion": reg.intensidad_emocion,  # ✅ CORREGIDO: era intensidad_emocional
                 "notas": reg.notas,
-                "contexto": reg.contexto
+                "contexto": reg.contexto,
+                "sentimiento_score": getattr(reg, 'sentimiento_score', None),
+                "nivel_riesgo": reg.nivel_riesgo.value if reg.nivel_riesgo else None
             }
             for reg in registros
         ]

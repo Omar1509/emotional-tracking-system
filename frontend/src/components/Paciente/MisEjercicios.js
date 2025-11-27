@@ -1,5 +1,5 @@
 // frontend/src/components/Paciente/MisEjercicios.js
-// ✅ EJERCICIOS TERAPÉUTICOS SEMANALES PARA PACIENTE
+// ✅ VERSIÓN FINAL CON RUTA CORREGIDA
 
 import React, { useState, useEffect } from 'react';
 import { Activity, CheckCircle, Clock, ArrowLeft, Target, TrendingUp, Calendar } from 'lucide-react';
@@ -14,16 +14,37 @@ const MisEjercicios = ({ setCurrentView }) => {
 
   useEffect(() => {
     cargarEjercicios();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const cargarEjercicios = async () => {
     try {
       setLoading(true);
       const response = await api.get('/ejercicios/mis-ejercicios');
-      setEjercicios(response.ejercicios_asignados || []);
+      
+      console.log('📦 Respuesta raw del backend:', response);
+      
+      let ejerciciosData = [];
+      
+      if (Array.isArray(response)) {
+        ejerciciosData = response;
+        console.log('✅ Formato correcto: Array directo con', ejerciciosData.length, 'ejercicios');
+      } else if (response?.ejercicios_asignados && Array.isArray(response.ejercicios_asignados)) {
+        ejerciciosData = response.ejercicios_asignados;
+        console.log('✅ Formato alternativo detectado');
+      } else {
+        console.warn('⚠️ Formato inesperado:', response);
+        ejerciciosData = [];
+      }
+
+      console.log('✅ Total ejercicios cargados:', ejerciciosData.length);
+      console.log('📋 Ejercicios:', ejerciciosData);
+      
+      setEjercicios(ejerciciosData);
     } catch (error) {
-      console.error('Error cargando ejercicios:', error);
+      console.error('❌ Error cargando ejercicios:', error);
       mostrarNotificacion('error', 'Error', 'No se pudieron cargar los ejercicios');
+      setEjercicios([]);
     } finally {
       setLoading(false);
     }
@@ -34,20 +55,26 @@ const MisEjercicios = ({ setCurrentView }) => {
     setTimeout(() => setNotificacion(null), 5000);
   };
 
-  const marcarComoCompletado = async (idAsignacion, idEjercicio) => {
+  const marcarComoCompletado = async (idAsignacion) => {
     try {
       setCompletando(idAsignacion);
       
-      await api.post(`/ejercicios/${idAsignacion}/completar`, {
-        duracion_real_minutos: null, // Se puede pedir al usuario
-        calificacion: null,
-        comentarios: null
+      console.log('🎯 Intentando completar ejercicio con ID:', idAsignacion);
+      console.log('📍 Ruta que se usará:', `/ejercicios/completar/${idAsignacion}`);
+      
+      // ✅ RUTA CORRECTA según tu backend: POST /ejercicios/completar/{asignacion_id}
+      await api.post(`/ejercicios/completar/${idAsignacion}`, {
+        calificacion: 5,  // Requerido por el backend (1-5)
+        comentario: "Ejercicio completado desde la aplicación"
       });
 
+      console.log('✅ Ejercicio completado exitosamente');
       mostrarNotificacion('exito', '¡Excelente!', 'Ejercicio marcado como completado');
-      cargarEjercicios(); // Recargar lista
+      
+      // Recargar ejercicios para actualizar la lista
+      await cargarEjercicios();
     } catch (error) {
-      console.error('Error completando ejercicio:', error);
+      console.error('❌ Error completando ejercicio:', error);
       mostrarNotificacion('error', 'Error', 'No se pudo marcar el ejercicio como completado');
     } finally {
       setCompletando(null);
@@ -69,29 +96,34 @@ const MisEjercicios = ({ setCurrentView }) => {
   };
 
   const obtenerColorPorEstado = (estado) => {
-    switch (estado) {
-      case 'completado':
+    const estadoUpper = estado?.toUpperCase() || '';
+    
+    switch (estadoUpper) {
+      case 'COMPLETADO':
+      case 'COMPLETED':
         return {
           bg: 'bg-green-50',
           border: 'border-green-300',
           text: 'text-green-800',
           badge: 'bg-green-100 text-green-800'
         };
-      case 'en_progreso':
+      case 'EN_PROGRESO':
+      case 'IN_PROGRESS':
         return {
           bg: 'bg-blue-50',
           border: 'border-blue-300',
           text: 'text-blue-800',
           badge: 'bg-blue-100 text-blue-800'
         };
-      case 'vencido':
+      case 'VENCIDO':
+      case 'EXPIRED':
         return {
           bg: 'bg-red-50',
           border: 'border-red-300',
           text: 'text-red-800',
           badge: 'bg-red-100 text-red-800'
         };
-      default: // pendiente
+      default:
         return {
           bg: 'bg-purple-50',
           border: 'border-purple-300',
@@ -102,13 +134,24 @@ const MisEjercicios = ({ setCurrentView }) => {
   };
 
   const calcularProgreso = (ejercicio) => {
-    const porcentaje = (ejercicio.veces_completadas / ejercicio.veces_requeridas) * 100;
+    const completadas = ejercicio.veces_completadas || 0;
+    const requeridas = ejercicio.veces_requeridas || 1;
+    const porcentaje = (completadas / requeridas) * 100;
     return Math.min(porcentaje, 100);
   };
 
-  const ejerciciosActivos = ejercicios.filter(e => e.esta_activo && e.estado !== 'completado' && e.estado !== 'vencido');
-  const ejerciciosCompletados = ejercicios.filter(e => e.estado === 'completado');
-  const ejerciciosVencidos = ejercicios.filter(e => e.estado === 'vencido');
+  const ejerciciosActivos = ejercicios.filter(e => {
+    const estado = e.estado?.toUpperCase();
+    const noCompletado = estado !== 'COMPLETADO' && estado !== 'COMPLETED';
+    const noVencido = estado !== 'VENCIDO' && estado !== 'EXPIRED';
+    
+    return noCompletado && noVencido;
+  });
+  
+  const ejerciciosCompletados = ejercicios.filter(e => {
+    const estado = e.estado?.toUpperCase();
+    return estado === 'COMPLETADO' || estado === 'COMPLETED';
+  });
 
   if (loading) {
     return (
@@ -203,59 +246,69 @@ const MisEjercicios = ({ setCurrentView }) => {
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-white mb-4">📝 Ejercicios Pendientes</h2>
             <div className="space-y-4">
-              {ejerciciosActivos.map((ejercicioAsignado) => {
-                const colores = obtenerColorPorEstado(ejercicioAsignado.estado);
-                const progreso = calcularProgreso(ejercicioAsignado);
-                const ejercicio = ejercicioAsignado.ejercicio;
+              {ejerciciosActivos.map((ejercicio) => {
+                const colores = obtenerColorPorEstado(ejercicio.estado);
+                const progreso = calcularProgreso(ejercicio);
+
+                const titulo = ejercicio.ejercicio_titulo || 'Ejercicio';
+                const tipo = ejercicio.ejercicio_tipo || 'respiracion';
+                const descripcion = ejercicio.ejercicio_descripcion || '';
+                const instrucciones = ejercicio.ejercicio_instrucciones || '';
+                const duracion = ejercicio.duracion_minutos || 0;
+                const dificultad = ejercicio.nivel_dificultad || 'principiante';
 
                 return (
                   <div
-                    key={ejercicioAsignado.id_asignacion}
+                    key={ejercicio.id_asignacion}
                     className={`bg-white rounded-xl shadow-lg p-6 border-l-8 ${colores.border} hover:shadow-2xl transition-all`}
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-start space-x-4 flex-1">
                         <div className="text-5xl">
-                          {obtenerIconoEjercicio(ejercicio.tipo)}
+                          {obtenerIconoEjercicio(tipo)}
                         </div>
                         <div className="flex-1">
                           <h3 className="text-xl font-bold text-gray-800 mb-2">
-                            {ejercicio.titulo}
+                            {titulo}
                           </h3>
                           <p className="text-gray-600 text-sm mb-3">
-                            {ejercicio.descripcion}
+                            {descripcion}
                           </p>
                           
                           {/* Badges */}
                           <div className="flex flex-wrap gap-2 mb-3">
                             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${colores.badge}`}>
-                              {ejercicioAsignado.estado.replace('_', ' ').toUpperCase()}
+                              {ejercicio.estado?.replace('_', ' ').toUpperCase()}
                             </span>
                             <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-semibold flex items-center space-x-1">
                               <Clock className="w-3 h-3" />
-                              <span>{ejercicio.duracion_minutos} min</span>
+                              <span>{duracion} min</span>
                             </span>
                             <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-semibold capitalize">
-                              {ejercicio.tipo.replace('_', ' ')}
+                              {tipo?.replace('_', ' ')}
                             </span>
-                            <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-semibold capitalize">
-                              {ejercicio.nivel_dificultad}
-                            </span>
+                            {dificultad && (
+                              <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-semibold capitalize">
+                                {dificultad}
+                              </span>
+                            )}
                           </div>
 
                           {/* Instrucciones */}
-                          <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                            <p className="text-sm font-semibold text-gray-700 mb-2">📋 Instrucciones:</p>
-                            <p className="text-sm text-gray-700 leading-relaxed">
-                              {ejercicio.instrucciones}
-                            </p>
-                          </div>
+                          {instrucciones && (
+                            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                              <p className="text-sm font-semibold text-gray-700 mb-2">📋 Instrucciones:</p>
+                              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+                                {instrucciones}
+                              </p>
+                            </div>
+                          )}
 
                           {/* Progreso */}
                           <div className="mb-4">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-sm font-semibold text-gray-700">
-                                Progreso: {ejercicioAsignado.veces_completadas}/{ejercicioAsignado.veces_requeridas}
+                                Progreso: {ejercicio.veces_completadas || 0}/{ejercicio.veces_requeridas || 1}
                               </span>
                               <span className="text-sm font-bold text-indigo-600">
                                 {Math.round(progreso)}%
@@ -270,30 +323,34 @@ const MisEjercicios = ({ setCurrentView }) => {
                           </div>
 
                           {/* Fechas */}
-                          <div className="flex items-center space-x-4 text-sm text-gray-600">
-                            <div className="flex items-center space-x-1">
-                              <Calendar className="w-4 h-4" />
-                              <span>
-                                Inicio: {new Date(ejercicioAsignado.fecha_inicio).toLocaleDateString('es-ES')}
-                              </span>
+                          {ejercicio.fecha_asignacion && (
+                            <div className="flex items-center space-x-4 text-sm text-gray-600">
+                              <div className="flex items-center space-x-1">
+                                <Calendar className="w-4 h-4" />
+                                <span>
+                                  Asignado: {new Date(ejercicio.fecha_asignacion).toLocaleDateString('es-ES')}
+                                </span>
+                              </div>
+                              {ejercicio.fecha_limite && (
+                                <div className="flex items-center space-x-1">
+                                  <Calendar className="w-4 h-4" />
+                                  <span>
+                                    Límite: {new Date(ejercicio.fecha_limite).toLocaleDateString('es-ES')}
+                                  </span>
+                                </div>
+                              )}
                             </div>
-                            <div className="flex items-center space-x-1">
-                              <Calendar className="w-4 h-4" />
-                              <span>
-                                Fin: {new Date(ejercicioAsignado.fecha_fin).toLocaleDateString('es-ES')}
-                              </span>
-                            </div>
-                          </div>
+                          )}
                         </div>
                       </div>
 
                       {/* Botón Completar */}
                       <button
-                        onClick={() => marcarComoCompletado(ejercicioAsignado.id_asignacion, ejercicio.id_ejercicio)}
-                        disabled={completando === ejercicioAsignado.id_asignacion}
+                        onClick={() => marcarComoCompletado(ejercicio.id_asignacion)}
+                        disabled={completando === ejercicio.id_asignacion}
                         className="flex flex-col items-center justify-center px-6 py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed min-w-[140px]"
                       >
-                        {completando === ejercicioAsignado.id_asignacion ? (
+                        {completando === ejercicio.id_asignacion ? (
                           <>
                             <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mb-2"></div>
                             <span className="font-semibold">Guardando...</span>
@@ -308,11 +365,11 @@ const MisEjercicios = ({ setCurrentView }) => {
                     </div>
 
                     {/* Notas del psicólogo */}
-                    {ejercicioAsignado.notas_psicologo && (
+                    {ejercicio.notas_psicologo && (
                       <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
                         <p className="text-sm font-semibold text-blue-900 mb-1">💬 Nota de tu psicólogo:</p>
                         <p className="text-sm text-blue-800">
-                          {ejercicioAsignado.notas_psicologo}
+                          {ejercicio.notas_psicologo}
                         </p>
                       </div>
                     )}
@@ -328,22 +385,29 @@ const MisEjercicios = ({ setCurrentView }) => {
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-white mb-4">✅ Ejercicios Completados</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {ejerciciosCompletados.map((ejercicioAsignado) => {
-                const ejercicio = ejercicioAsignado.ejercicio;
+              {ejerciciosCompletados.map((ejercicio) => {
+                const titulo = ejercicio.ejercicio_titulo || 'Ejercicio';
+                const tipo = ejercicio.ejercicio_tipo || 'respiracion';
+                
                 return (
                   <div
-                    key={ejercicioAsignado.id_asignacion}
+                    key={ejercicio.id_asignacion}
                     className="bg-white rounded-xl shadow-lg p-4 border-l-4 border-green-500"
                   >
                     <div className="flex items-center space-x-3">
                       <div className="text-3xl">
-                        {obtenerIconoEjercicio(ejercicio.tipo)}
+                        {obtenerIconoEjercicio(tipo)}
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-bold text-gray-800">{ejercicio.titulo}</h4>
+                        <h4 className="font-bold text-gray-800">{titulo}</h4>
                         <p className="text-sm text-gray-600">
-                          Completado {ejercicioAsignado.veces_completadas}/{ejercicioAsignado.veces_requeridas} veces
+                          Completado {ejercicio.veces_completadas || 0}/{ejercicio.veces_requeridas || 1} veces
                         </p>
+                        {ejercicio.fecha_completado && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {new Date(ejercicio.fecha_completado).toLocaleDateString('es-ES')}
+                          </p>
+                        )}
                       </div>
                       <CheckCircle className="w-8 h-8 text-green-500" />
                     </div>

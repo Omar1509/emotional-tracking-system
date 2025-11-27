@@ -1,11 +1,11 @@
-# backend/email_service.py
-
 import os
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
 import logging
 import secrets
 import string
+from dotenv import load_dotenv
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +19,18 @@ class EmailService:
         if not self.api_key:
             logger.warning("⚠️ SENDGRID_API_KEY no configurada. Los correos se simularán.")
             self.enabled = False
+            print("⚠️ SENDGRID_API_KEY no configurada. Los correos se simularán.")
         else:
-            self.sg = SendGridAPIClient(self.api_key)
-            self.enabled = True
+            try:
+                self.sg = SendGridAPIClient(self.api_key)
+                self.enabled = True
+                logger.info("✅ SendGrid configurado correctamente")
+                print(f"✅ SendGrid configurado correctamente")
+                print(f"   📧 FROM_EMAIL: {self.from_email}")
+            except Exception as e:
+                logger.error(f"❌ Error configurando SendGrid: {e}")
+                self.enabled = False
+                print(f"❌ Error configurando SendGrid: {e}")
     
     def _send_email(self, to_email: str, subject: str, html_content: str) -> bool:
         """Envía un correo usando SendGrid"""
@@ -41,11 +50,18 @@ class EmailService:
             )
             
             response = self.sg.send(message)
-            logger.info(f"✅ Correo enviado a {to_email} - Status: {response.status_code}")
-            return True
+            
+            if response.status_code in [200, 201, 202]:
+                logger.info(f"✅ Correo enviado a {to_email} - Status: {response.status_code}")
+                print(f"✅ Correo enviado exitosamente a {to_email}")
+                return True
+            else:
+                logger.warning(f"⚠️ Correo enviado con status {response.status_code}")
+                return True
             
         except Exception as e:
             logger.error(f"❌ Error enviando correo a {to_email}: {e}")
+            print(f"❌ Error enviando correo: {e}")
             return False
     
     def send_credentials_email(
@@ -97,7 +113,6 @@ class EmailService:
                     
                     <p>Este es un espacio seguro donde podrás:</p>
                     <ul>
-                        <li>📊 Registrar tu estado emocional diario</li>
                         <li>💬 Chatear con nuestro asistente terapéutico con IA</li>
                         <li>📈 Ver tu progreso emocional a lo largo del tiempo</li>
                         <li>📅 Gestionar tus citas con tu psicólogo</li>

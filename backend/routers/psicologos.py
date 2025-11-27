@@ -487,3 +487,115 @@ async def obtener_estadisticas_psicologo(
         "citas_esta_semana": citas_semana,
         "pacientes_alto_riesgo_ultimos_7_dias": pacientes_alto_riesgo
     }
+@router.put("/psicologos/paciente/{paciente_id}")
+async def actualizar_paciente(
+    paciente_id: int,
+    datos: dict,
+    current_user: models.Usuario = Depends(get_current_psicologo),
+    db: Session = Depends(get_db)
+):
+    """
+    ✅ Actualizar información del paciente
+    """
+    try:
+        # Verificar que el paciente pertenece a este psicólogo
+        asignacion = db.query(models.PacientePsicologo).filter(
+            models.PacientePsicologo.id_paciente == paciente_id,
+            models.PacientePsicologo.id_psicologo == current_user.id_usuario,
+            models.PacientePsicologo.activo == True
+        ).first()
+
+        if not asignacion:
+            raise HTTPException(
+                status_code=403,
+                detail="No tienes acceso a este paciente"
+            )
+
+        # Actualizar usuario
+        paciente = db.query(models.Usuario).filter(
+            models.Usuario.id_usuario == paciente_id
+        ).first()
+
+        if not paciente:
+            raise HTTPException(status_code=404, detail="Paciente no encontrado")
+
+        # Actualizar campos
+        if datos.get('nombre'):
+            paciente.nombre = datos['nombre']
+        if datos.get('apellido'):
+            paciente.apellido = datos['apellido']
+        if datos.get('email'):
+            paciente.email = datos['email']
+        if datos.get('telefono'):
+            paciente.telefono = datos['telefono']
+
+        db.commit()
+        db.refresh(paciente)
+
+        return {
+            "mensaje": "Paciente actualizado exitosamente",
+            "paciente": {
+                "id_usuario": paciente.id_usuario,
+                "nombre": paciente.nombre,
+                "apellido": paciente.apellido,
+                "email": paciente.email,
+                "telefono": paciente.telefono
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error actualizando paciente: {str(e)}"
+        )
+
+
+@router.delete("/psicologos/paciente/{paciente_id}")
+async def eliminar_paciente(
+    paciente_id: int,
+    current_user: models.Usuario = Depends(get_current_psicologo),
+    db: Session = Depends(get_db)
+):
+    """
+    ✅ Eliminar paciente y toda su información
+    """
+    try:
+        # Verificar que el paciente pertenece a este psicólogo
+        asignacion = db.query(models.PacientePsicologo).filter(
+            models.PacientePsicologo.id_paciente == paciente_id,
+            models.PacientePsicologo.id_psicologo == current_user.id_usuario,
+            models.PacientePsicologo.activo == True
+        ).first()
+
+        if not asignacion:
+            raise HTTPException(
+                status_code=403,
+                detail="No tienes acceso a este paciente"
+            )
+
+        # Eliminar usuario (en cascada se eliminarán registros, ejercicios, etc.)
+        paciente = db.query(models.Usuario).filter(
+            models.Usuario.id_usuario == paciente_id
+        ).first()
+
+        if not paciente:
+            raise HTTPException(status_code=404, detail="Paciente no encontrado")
+
+        db.delete(paciente)
+        db.commit()
+
+        return {
+            "mensaje": "Paciente eliminado exitosamente"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error eliminando paciente: {str(e)}"
+        )

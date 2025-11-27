@@ -1,4 +1,6 @@
 # backend/routers/registros_emocionales.py
+# ✅ VERSIÓN CORREGIDA CON NOMBRES DE CAMPOS CORRECTOS
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -32,10 +34,10 @@ async def obtener_mis_registros(
                 "fecha_hora": r.fecha_hora.isoformat(),
                 "nivel_animo": r.nivel_animo,
                 "emocion_principal": r.emocion_principal,
-                "intensidad_emocion": r.intensidad_emocion,
+                "intensidad_emocion": r.intensidad_emocion,  # ✅ CORRECTO
                 "notas": r.notas,
                 "contexto": r.contexto,
-                "sentimiento_score": r.sentimiento_score,
+                "sentimiento_score": getattr(r, 'sentimiento_score', None),
                 "nivel_riesgo": r.nivel_riesgo.value if r.nivel_riesgo else None
             }
             for r in registros
@@ -47,7 +49,7 @@ async def obtener_mis_registros(
 async def crear_registro_emocional(
     nivel_animo: int,
     emocion_principal: str,
-    intensidad_emocion: float = None,
+    intensidad_emocion: float = None,  # ✅ CORRECTO
     notas: str = None,
     contexto: str = None,
     current_user: models.Usuario = Depends(get_current_paciente),
@@ -60,7 +62,7 @@ async def crear_registro_emocional(
         id_usuario=current_user.id_usuario,
         nivel_animo=nivel_animo,
         emocion_principal=emocion_principal,
-        intensidad_emocion=intensidad_emocion,
+        intensidad_emocion=intensidad_emocion,  # ✅ CORRECTO
         notas=notas,
         contexto=contexto,
         fecha_hora=datetime.utcnow()

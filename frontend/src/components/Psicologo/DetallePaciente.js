@@ -1,5 +1,6 @@
 // frontend/src/components/Psicologo/DetallePaciente.js
 // ✅ VERSIÓN ULTRA-CORREGIDA - Manejo robusto de errores y carga de datos
+// 🎨 MEJORA: Visualización de emociones con emojis y texto descriptivo
 
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, User, Mail, Phone, Calendar, TrendingUp, Activity, Plus, Target, CheckCircle } from 'lucide-react';
@@ -84,11 +85,21 @@ const DetallePaciente = ({ pacienteId, setCurrentView }) => {
         setRegistros([]);
       }
 
-      // ✅ PASO 3: Cargar ejercicios asignados
+      // ✅ PASO 3: Cargar ejercicios asignados - FIX PRINCIPAL
       try {
         console.log('📡 Cargando ejercicios asignados...');
         const ejerciciosResponse = await api.get(`/ejercicios/paciente/${pacienteId}/asignados`);
-        const ejerciciosData = ejerciciosResponse.ejercicios_asignados || [];
+        
+        // ✅ FIX: El backend devuelve ARRAY DIRECTO, no objeto
+        let ejerciciosData = [];
+        if (Array.isArray(ejerciciosResponse)) {
+          // Si la respuesta ES un array directamente
+          ejerciciosData = ejerciciosResponse;
+        } else if (ejerciciosResponse && ejerciciosResponse.ejercicios_asignados) {
+          // Si viene dentro de un objeto
+          ejerciciosData = ejerciciosResponse.ejercicios_asignados;
+        }
+        
         console.log('✅ Ejercicios asignados cargados:', ejerciciosData.length);
         setEjerciciosAsignados(ejerciciosData);
       } catch (error) {
@@ -96,11 +107,21 @@ const DetallePaciente = ({ pacienteId, setCurrentView }) => {
         setEjerciciosAsignados([]);
       }
 
-      // ✅ PASO 4: Cargar catálogo de ejercicios
+      // ✅ PASO 4: Cargar catálogo de ejercicios - FIX PRINCIPAL
       try {
         console.log('📡 Cargando catálogo de ejercicios...');
         const catalogoResponse = await api.get('/ejercicios/catalogo');
-        const catalogoData = catalogoResponse.ejercicios || [];
+        
+        // ✅ FIX: El backend devuelve ARRAY DIRECTO, no objeto
+        let catalogoData = [];
+        if (Array.isArray(catalogoResponse)) {
+          // Si la respuesta ES un array directamente
+          catalogoData = catalogoResponse;
+        } else if (catalogoResponse && catalogoResponse.ejercicios) {
+          // Si viene dentro de un objeto
+          catalogoData = catalogoResponse.ejercicios;
+        }
+        
         console.log('✅ Catálogo de ejercicios cargado:', catalogoData.length);
         setCatalogoEjercicios(catalogoData);
       } catch (error) {
@@ -190,6 +211,15 @@ const DetallePaciente = ({ pacienteId, setCurrentView }) => {
     return 'bg-green-500';
   };
 
+  // 🎨 NUEVA FUNCIÓN: Convertir nivel numérico a emoción descriptiva
+  const obtenerEmocionPorNivel = (nivel) => {
+    if (nivel <= 2) return { emoji: '😢', texto: 'Muy bajo', color: 'text-red-600' };
+    if (nivel <= 4) return { emoji: '😔', texto: 'Bajo', color: 'text-orange-600' };
+    if (nivel <= 6) return { emoji: '😐', texto: 'Neutral', color: 'text-yellow-600' };
+    if (nivel <= 8) return { emoji: '🙂', texto: 'Bueno', color: 'text-green-600' };
+    return { emoji: '😄', texto: 'Excelente', color: 'text-green-700' };
+  };
+
   const prepararDatosGrafico = () => {
     const ultimosRegistros = registros.slice(0, 10).reverse();
     
@@ -207,7 +237,7 @@ const DetallePaciente = ({ pacienteId, setCurrentView }) => {
     const iconos = {
       'respiracion': '🌬️',
       'meditacion': '🧘',
-      'escritura': '✍️',
+      'escritura': '✏️',
       'actividad_fisica': '🏃',
       'mindfulness': '🌸',
       'relajacion': '😌'
@@ -382,36 +412,48 @@ const DetallePaciente = ({ pacienteId, setCurrentView }) => {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Lista de registros */}
+                  {/* Lista de registros - 🎨 MEJORADO */}
                   <div>
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">
                       Historial de Registros
                     </h3>
                     <div className="space-y-4">
-                      {registros.slice(0, 10).map((registro) => (
-                        <div
-                          key={registro.id_registro}
-                          className="bg-gray-50 rounded-lg p-4 border-l-4 border-indigo-500"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center space-x-3">
-                              <Calendar className="w-5 h-5 text-gray-600" />
-                              <span className="text-sm text-gray-600">
-                                {formatearFecha(registro.fecha_hora)}
-                              </span>
+                      {registros.slice(0, 10).map((registro) => {
+                        const emocion = obtenerEmocionPorNivel(registro.nivel_animo);
+                        return (
+                          <div
+                            key={registro.id_registro}
+                            className="bg-gray-50 rounded-lg p-4 border-l-4 border-indigo-500"
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center space-x-3">
+                                <Calendar className="w-5 h-5 text-gray-600" />
+                                <span className="text-sm text-gray-600">
+                                  {formatearFecha(registro.fecha_hora)}
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-3">
+                                <div className="text-right">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-3xl">{emocion.emoji}</span>
+                                    <div>
+                                      <p className={`text-sm font-bold ${emocion.color}`}>
+                                        {emocion.texto}
+                                      </p>
+                                      <p className="text-xs text-gray-500">{registro.nivel_animo || 5}/10</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <div className={`w-3 h-3 rounded-full ${obtenerColorAnimo(registro.nivel_animo)}`} />
-                              <span className="text-2xl font-bold text-gray-800">{registro.nivel_animo || 5}/10</span>
-                            </div>
+                            {registro.notas && (
+                              <div className="bg-white p-3 rounded-lg">
+                                <p className="text-sm text-gray-700">{registro.notas}</p>
+                              </div>
+                            )}
                           </div>
-                          {registro.notas && (
-                            <div className="bg-white p-3 rounded-lg">
-                              <p className="text-sm text-gray-700">{registro.notas}</p>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </>
@@ -462,31 +504,16 @@ const DetallePaciente = ({ pacienteId, setCurrentView }) => {
                     <div key={asignacion.id_asignacion} className="bg-gray-50 rounded-lg p-4 border-l-4 border-purple-500">
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-3 flex-1">
-                          <div className="text-3xl">{obtenerIconoEjercicio(asignacion.ejercicio?.tipo)}</div>
+                          <div className="text-3xl">{obtenerIconoEjercicio(asignacion.ejercicio_tipo)}</div>
                           <div className="flex-1">
-                            <h4 className="font-bold text-gray-800">{asignacion.ejercicio?.titulo || 'Ejercicio'}</h4>
-                            <p className="text-sm text-gray-600">{asignacion.ejercicio?.duracion_minutos || 0} min</p>
-                            <div className="mt-2">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs text-gray-600">
-                                  Progreso: {asignacion.veces_completadas}/{asignacion.veces_requeridas}
-                                </span>
-                                <span className="text-xs font-bold text-indigo-600">
-                                  {Math.round((asignacion.veces_completadas / asignacion.veces_requeridas) * 100)}%
-                                </span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full"
-                                  style={{ 
-                                    width: `${Math.min((asignacion.veces_completadas / asignacion.veces_requeridas) * 100, 100)}%` 
-                                  }}
-                                />
-                              </div>
-                            </div>
+                            <h4 className="font-bold text-gray-800">{asignacion.ejercicio_titulo || 'Ejercicio'}</h4>
+                            <p className="text-sm text-gray-600">{asignacion.duracion_minutos || 0} min</p>
+                            {asignacion.notas_psicologo && (
+                              <p className="text-sm text-gray-600 mt-2 italic">"{asignacion.notas_psicologo}"</p>
+                            )}
                           </div>
                         </div>
-                        {asignacion.estado === 'completado' && (
+                        {asignacion.estado === 'COMPLETADO' && (
                           <CheckCircle className="w-6 h-6 text-green-500" />
                         )}
                       </div>
