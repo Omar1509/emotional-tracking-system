@@ -103,7 +103,7 @@ async def login(
         "role": user.rol,
         "user_id": user.id_usuario,
         "nombre_completo": f"{user.nombre} {user.apellido}",
-        "requiere_cambio_password": user.requiere_cambio_password  # ✅ IMPORTANTE
+        "requiere_cambio_password": user.requiere_cambio_password 
     }
 
 @router.post("/cambiar-password")
@@ -131,7 +131,7 @@ async def cambiar_password(
     
     # Actualizar contraseña
     current_user.password_hash = hash_password(password_data.password_nueva)
-    current_user.requiere_cambio_password = False  # ✅ Ya no requiere cambio
+    current_user.requiere_cambio_password = False 
     
     db.commit()
     

@@ -1,5 +1,5 @@
 // frontend/src/components/Paciente/MisEjercicios.js
-// ✅ VERSIÓN FINAL CON RUTA CORREGIDA
+// ✅ COLORES SUAVES
 
 import React, { useState, useEffect } from 'react';
 import { Activity, CheckCircle, Clock, ArrowLeft, Target, TrendingUp, Calendar } from 'lucide-react';
@@ -62,16 +62,14 @@ const MisEjercicios = ({ setCurrentView }) => {
       console.log('🎯 Intentando completar ejercicio con ID:', idAsignacion);
       console.log('📍 Ruta que se usará:', `/ejercicios/completar/${idAsignacion}`);
       
-      // ✅ RUTA CORRECTA según tu backend: POST /ejercicios/completar/{asignacion_id}
       await api.post(`/ejercicios/completar/${idAsignacion}`, {
-        calificacion: 5,  // Requerido por el backend (1-5)
+        calificacion: 5,
         comentario: "Ejercicio completado desde la aplicación"
       });
 
       console.log('✅ Ejercicio completado exitosamente');
       mostrarNotificacion('exito', '¡Excelente!', 'Ejercicio marcado como completado');
       
-      // Recargar ejercicios para actualizar la lista
       await cargarEjercicios();
     } catch (error) {
       console.error('❌ Error completando ejercicio:', error);
@@ -155,17 +153,17 @@ const MisEjercicios = ({ setCurrentView }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-8 flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-xl">Cargando tus ejercicios...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-xl text-gray-800">Cargando tus ejercicios...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-8">
       {notificacion && (
         <Notificacion
           tipo={notificacion.tipo}
@@ -180,63 +178,44 @@ const MisEjercicios = ({ setCurrentView }) => {
         <div className="flex items-center justify-between mb-8">
           <button
             onClick={() => setCurrentView('dashboard')}
-            className="flex items-center space-x-2 text-white hover:text-indigo-100 transition-colors"
+            className="flex items-center space-x-2 text-gray-700 hover:text-indigo-600 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Volver</span>
           </button>
-          
-          <div className="text-center flex-1">
-            <h1 className="text-4xl font-bold text-white mb-2">🎯 Mis Ejercicios Terapéuticos</h1>
-            <p className="text-indigo-100">Rutinas para tu bienestar emocional</p>
-          </div>
-
-          <div className="w-24"></div>
+          <h1 className="text-3xl font-bold text-gray-800">Mis Ejercicios</h1>
+          <div className="w-20"></div>
         </div>
 
-        {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-xl p-6 shadow-lg">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-gradient-to-br from-blue-300 to-blue-400 rounded-xl shadow-lg p-6 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm mb-1">Total</p>
-                <p className="text-3xl font-bold text-indigo-600">{ejercicios.length}</p>
+                <p className="text-blue-100 text-sm font-medium">Total Asignados</p>
+                <p className="text-3xl font-bold mt-2">{ejercicios.length}</p>
               </div>
-              <Activity className="w-10 h-10 text-indigo-400" />
+              <Activity className="w-12 h-12 text-blue-100" />
             </div>
           </div>
-          
-          <div className="bg-white rounded-xl p-6 shadow-lg">
+
+          <div className="bg-gradient-to-br from-green-300 to-green-400 rounded-xl shadow-lg p-6 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm mb-1">Activos</p>
-                <p className="text-3xl font-bold text-purple-600">{ejerciciosActivos.length}</p>
+                <p className="text-green-100 text-sm font-medium">Completados</p>
+                <p className="text-3xl font-bold mt-2">{ejerciciosCompletados.length}</p>
               </div>
-              <Target className="w-10 h-10 text-purple-400" />
+              <CheckCircle className="w-12 h-12 text-green-100" />
             </div>
           </div>
-          
-          <div className="bg-white rounded-xl p-6 shadow-lg">
+
+          <div className="bg-gradient-to-br from-purple-300 to-purple-400 rounded-xl shadow-lg p-6 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm mb-1">Completados</p>
-                <p className="text-3xl font-bold text-green-600">{ejerciciosCompletados.length}</p>
+                <p className="text-purple-100 text-sm font-medium">En Progreso</p>
+                <p className="text-3xl font-bold mt-2">{ejerciciosActivos.length}</p>
               </div>
-              <CheckCircle className="w-10 h-10 text-green-400" />
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl p-6 shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm mb-1">Progreso</p>
-                <p className="text-3xl font-bold text-blue-600">
-                  {ejercicios.length > 0 
-                    ? Math.round((ejerciciosCompletados.length / ejercicios.length) * 100)
-                    : 0}%
-                </p>
-              </div>
-              <TrendingUp className="w-10 h-10 text-blue-400" />
+              <Target className="w-12 h-12 text-purple-100" />
             </div>
           </div>
         </div>
@@ -244,14 +223,13 @@ const MisEjercicios = ({ setCurrentView }) => {
         {/* Ejercicios Activos */}
         {ejerciciosActivos.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-white mb-4">📝 Ejercicios Pendientes</h2>
-            <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">🎯 Ejercicios Pendientes</h2>
+            <div className="space-y-6">
               {ejerciciosActivos.map((ejercicio) => {
-                const colores = obtenerColorPorEstado(ejercicio.estado);
-                const progreso = calcularProgreso(ejercicio);
-
                 const titulo = ejercicio.ejercicio_titulo || 'Ejercicio';
                 const tipo = ejercicio.ejercicio_tipo || 'respiracion';
+                const colores = obtenerColorPorEstado(ejercicio.estado);
+                const progreso = calcularProgreso(ejercicio);
                 const descripcion = ejercicio.ejercicio_descripcion || '';
                 const instrucciones = ejercicio.ejercicio_instrucciones || '';
                 const duracion = ejercicio.duracion_minutos || 0;
@@ -316,7 +294,7 @@ const MisEjercicios = ({ setCurrentView }) => {
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-3">
                               <div
-                                className="bg-gradient-to-r from-indigo-500 to-purple-500 h-3 rounded-full transition-all duration-300"
+                                className="bg-gradient-to-r from-indigo-400 to-purple-400 h-3 rounded-full transition-all duration-300"
                                 style={{ width: `${progreso}%` }}
                               />
                             </div>
@@ -348,7 +326,7 @@ const MisEjercicios = ({ setCurrentView }) => {
                       <button
                         onClick={() => marcarComoCompletado(ejercicio.id_asignacion)}
                         disabled={completando === ejercicio.id_asignacion}
-                        className="flex flex-col items-center justify-center px-6 py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed min-w-[140px]"
+                        className="flex flex-col items-center justify-center px-6 py-4 bg-gradient-to-r from-green-400 to-green-500 text-white rounded-xl hover:from-green-500 hover:to-green-600 disabled:from-gray-400 disabled:to-gray-500 transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed min-w-[140px]"
                       >
                         {completando === ejercicio.id_asignacion ? (
                           <>
@@ -366,7 +344,7 @@ const MisEjercicios = ({ setCurrentView }) => {
 
                     {/* Notas del psicólogo */}
                     {ejercicio.notas_psicologo && (
-                      <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
+                      <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
                         <p className="text-sm font-semibold text-blue-900 mb-1">💬 Nota de tu psicólogo:</p>
                         <p className="text-sm text-blue-800">
                           {ejercicio.notas_psicologo}
@@ -383,7 +361,7 @@ const MisEjercicios = ({ setCurrentView }) => {
         {/* Ejercicios Completados */}
         {ejerciciosCompletados.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-white mb-4">✅ Ejercicios Completados</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">✅ Ejercicios Completados</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {ejerciciosCompletados.map((ejercicio) => {
                 const titulo = ejercicio.ejercicio_titulo || 'Ejercicio';
@@ -392,7 +370,7 @@ const MisEjercicios = ({ setCurrentView }) => {
                 return (
                   <div
                     key={ejercicio.id_asignacion}
-                    className="bg-white rounded-xl shadow-lg p-4 border-l-4 border-green-500"
+                    className="bg-white rounded-xl shadow-lg p-4 border-l-4 border-green-400"
                   >
                     <div className="flex items-center space-x-3">
                       <div className="text-3xl">

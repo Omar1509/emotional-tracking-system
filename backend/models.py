@@ -251,30 +251,37 @@ class ConfiguracionSistema(Base):
 class EmocionDiaria(Base):
     __tablename__ = "emociones_diarias"
     
-    id_emocion_diaria = Column(Integer, primary_key=True, index=True)
-    id_usuario = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=False)
+    # ✅ Primary Key: id_emocion_diaria
+    id_emocion_diaria = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    
+    # ✅ Foreign Key a usuarios
+    id_usuario = Column(Integer, ForeignKey("usuarios.id_usuario", ondelete="CASCADE"), nullable=False, index=True)
+    
+    # ✅ Fecha única por usuario
     fecha = Column(Date, nullable=False, index=True)
     
-    # Promedios de emociones
+    # Promedios de emociones (0.0 - 1.0)
     alegria_promedio = Column(Float, default=0.0)
     tristeza_promedio = Column(Float, default=0.0)
     ansiedad_promedio = Column(Float, default=0.0)
     enojo_promedio = Column(Float, default=0.0)
     miedo_promedio = Column(Float, default=0.0)
+    neutral_promedio = Column(Float, default=0.0)
     
     # Emoción dominante del día
     emocion_dominante = Column(String(50))
+    intensidad_promedio = Column(Float, default=0.0)
     
-    # Nivel de riesgo promedio
+    # Nivel de riesgo promedio (0.0 - 1.0)
     nivel_riesgo_promedio = Column(Float, default=0.0)
     
     # Metadata
     total_interacciones = Column(Integer, default=0)
     fecha_calculo = Column(DateTime, default=datetime.utcnow)
     
-    # Relación
+    # Relación con Usuario
     usuario = relationship("Usuario", foreign_keys=[id_usuario])
-
+    
 
 class Ejercicio(Base):
     __tablename__ = "ejercicios"

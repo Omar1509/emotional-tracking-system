@@ -1,5 +1,5 @@
 // frontend/src/components/Paciente/MisCitas.js
-// ✅ CRONOGRAMA DE CITAS PARA PACIENTE CON INDICADORES DE ASISTENCIA
+// ✅ COLORES SUAVES
 
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Video, MapPin, CheckCircle, XCircle, AlertCircle, ArrowLeft } from 'lucide-react';
@@ -114,17 +114,17 @@ const MisCitas = ({ setCurrentView }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-8 flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-xl">Cargando tus citas...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-xl text-gray-800">Cargando tus citas...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-8">
       {notificacion && (
         <Notificacion
           tipo={notificacion.tipo}
@@ -139,15 +139,15 @@ const MisCitas = ({ setCurrentView }) => {
         <div className="flex items-center justify-between mb-8">
           <button
             onClick={() => setCurrentView('dashboard')}
-            className="flex items-center space-x-2 text-white hover:text-indigo-100 transition-colors"
+            className="flex items-center space-x-2 text-gray-700 hover:text-indigo-600 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Volver</span>
           </button>
           
           <div className="text-center flex-1">
-            <h1 className="text-4xl font-bold text-white mb-2">📅 Mis Citas</h1>
-            <p className="text-indigo-100">Cronograma de sesiones terapéuticas</p>
+            <h1 className="text-4xl font-bold text-gray-800 mb-2">📅 Mis Citas</h1>
+            <p className="text-gray-600">Cronograma de sesiones terapéuticas</p>
           </div>
 
           <div className="w-24"></div> {/* Spacer para centrar el título */}
@@ -160,7 +160,7 @@ const MisCitas = ({ setCurrentView }) => {
               onClick={() => setFiltro('todas')}
               className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
                 filtro === 'todas'
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
+                  ? 'bg-gradient-to-r from-indigo-400 to-purple-400 text-white shadow-lg'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -170,7 +170,7 @@ const MisCitas = ({ setCurrentView }) => {
               onClick={() => setFiltro('proximas')}
               className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
                 filtro === 'proximas'
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
+                  ? 'bg-gradient-to-r from-indigo-400 to-purple-400 text-white shadow-lg'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -180,7 +180,7 @@ const MisCitas = ({ setCurrentView }) => {
               onClick={() => setFiltro('pasadas')}
               className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
                 filtro === 'pasadas'
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
+                  ? 'bg-gradient-to-r from-indigo-400 to-purple-400 text-white shadow-lg'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >

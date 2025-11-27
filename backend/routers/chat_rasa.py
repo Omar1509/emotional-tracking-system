@@ -1,4 +1,5 @@
 # backend/routers/chat_rasa.py
+# ✅ VERSIÓN CORREGIDA - Guardado en MongoDB funcional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -76,7 +77,7 @@ class HistorialChat(BaseModel):
 async def enviar_mensaje_rasa(
     mensaje: MensajeChat,
     current_user: models.Usuario = Depends(get_current_user),
-    db: Session = Depends(get_db)  # ✅ AGREGADO
+    db: Session = Depends(get_db)
 ):
     """
     Envía un mensaje al chatbot de Rasa y guarda la conversación
@@ -104,7 +105,32 @@ async def enviar_mensaje_rasa(
         print(f"Mensaje: {mensaje.mensaje}")
         print(f"URL Rasa: {RASA_URL}/webhooks/rest/webhook")
         
-        # Enviar mensaje a Rasa
+        # ============================================
+        # 1. ANÁLISIS EMOCIONAL DEL MENSAJE
+        # ============================================
+        analisis = None
+        try:
+            print(f"🧠 Analizando emoción del mensaje...")
+            analisis = nlp_service.comprehensive_analysis(mensaje.mensaje)
+            print(f"✅ Análisis completado: {analisis['emotions']['dominant_emotion']} ({analisis['risk_assessment']['level']})")
+        except Exception as e:
+            print(f"⚠️ Error en análisis NLP: {e}")
+            analisis = {
+                'sentiment': {'sentiment_score': 0, 'label': 'neutral'},
+                'emotions': {
+                    'dominant_emotion': 'neutral',
+                    'scores': {'neutral': 1.0},
+                    'confidence': 0.5
+                },
+                'risk_assessment': {
+                    'level': 'bajo',
+                    'score': 0
+                }
+            }
+        
+        # ============================================
+        # 2. ENVIAR MENSAJE A RASA
+        # ============================================
         async with httpx.AsyncClient(timeout=30.0) as client:
             rasa_response = await client.post(
                 f"{RASA_URL}/webhooks/rest/webhook",
@@ -120,7 +146,7 @@ async def enviar_mensaje_rasa(
             print(f"❌ Error de Rasa: {rasa_response.text}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"El servicio de chat no está disponible (Status: {rasa_response.status_code}). Verifica que Rasa esté corriendo en {RASA_URL}"
+                detail=f"El servicio de chat no está disponible (Status: {rasa_response.status_code})"
             )
         
         respuestas_rasa = rasa_response.json()
@@ -136,68 +162,70 @@ async def enviar_mensaje_rasa(
         
         print(f"✅ Respuesta principal: {respuesta_principal[:100]}...")
         
-        # Análisis emocional del mensaje del usuario
-        analisis = None
+        # ============================================
+        # 3. GUARDAR EN MONGODB
+        # ============================================
         try:
-            print(f"🧠 Analizando emoción del mensaje...")
-            analisis = nlp_service.comprehensive_analysis(mensaje.mensaje)
-            print(f"✅ Análisis completado: {analisis['emotions']['dominant_emotion']} ({analisis['risk_assessment']['level']})")
-        except Exception as e:
-            print(f"⚠️ Error en análisis NLP: {e}")
-            analisis = {
-                'sentiment': {'sentiment_score': 0, 'label': 'neutral'},
-                'emotions': {
-                    'dominant_emotion': 'neutral',
-                    'scores': {'neutral': 1.0}
-                },
-                'risk_assessment': {
-                    'level': 'bajo',
-                    'score': 0
-                }
-            }
-        
-        # Obtener conexión a MongoDB para guardar mensajes
-        try:
+            print(f"💾 Guardando en MongoDB...")
             mongo_db = get_database()
             
-            # Guardar mensaje del usuario en MongoDB
-            mongo_db.chat_messages.insert_one({
-                "user_id": str(current_user.id_usuario),
+            # 3.1 Guardar mensaje del usuario
+            print(f"   📝 Guardando mensaje del usuario...")
+            user_message_doc = {
+                "user_id": str(current_user.id_usuario),  # ✅ COMO STRING
                 "message": mensaje.mensaje,
                 "is_bot": False,
                 "timestamp": datetime.utcnow(),
-                "emotional_analysis": analisis,
+                "emotional_analysis": {  # ✅ ESTRUCTURA CORRECTA
+                    "sentiment": analisis.get('sentiment', {}),
+                    "emotions": analisis.get('emotions', {}),
+                    "risk_assessment": analisis.get('risk_assessment', {})
+                },
                 "sender_name": f"{current_user.nombre} {current_user.apellido}"
-            })
+            }
             
-            # Guardar respuesta(s) del bot en MongoDB
-            for resp_texto in respuestas_texto:
-                mongo_db.chat_messages.insert_one({
-                    "user_id": str(current_user.id_usuario),
+            result_user = mongo_db.chat_messages.insert_one(user_message_doc)
+            print(f"   ✅ Mensaje usuario guardado con ID: {result_user.inserted_id}")
+            
+            # 3.2 Guardar respuesta(s) del bot
+            print(f"   📝 Guardando {len(respuestas_texto)} respuesta(s) del bot...")
+            for idx, resp_texto in enumerate(respuestas_texto):
+                bot_message_doc = {
+                    "user_id": str(current_user.id_usuario),  # ✅ COMO STRING
                     "message": resp_texto,
                     "is_bot": True,
                     "timestamp": datetime.utcnow()
-                })
+                }
+                result_bot = mongo_db.chat_messages.insert_one(bot_message_doc)
+                print(f"   ✅ Respuesta {idx+1} guardada con ID: {result_bot.inserted_id}")
             
-            # Guardar análisis emocional detallado
-            mongo_db.emotional_texts.insert_one({
-                "user_id": str(current_user.id_usuario),
+            # 3.3 Guardar análisis emocional detallado
+            print(f"   📝 Guardando análisis emocional detallado...")
+            emotional_doc = {
+                "user_id": str(current_user.id_usuario),  # ✅ COMO STRING
                 "text": mensaje.mensaje,
                 "emotional_analysis": analisis,
                 "source": "chat_rasa",
                 "timestamp": datetime.utcnow()
-            })
+            }
+            result_emotional = mongo_db.emotional_texts.insert_one(emotional_doc)
+            print(f"   ✅ Análisis emocional guardado con ID: {result_emotional.inserted_id}")
             
-            print(f"💾 Conversación guardada en MongoDB")
+            print(f"✅ Todo guardado exitosamente en MongoDB")
             
         except Exception as e:
-            print(f"⚠️ Error guardando en MongoDB: {e}")
-            # No fallar si MongoDB no está disponible
+            print(f"❌ ERROR CRÍTICO guardando en MongoDB: {e}")
+            print(f"   Tipo de error: {type(e).__name__}")
+            import traceback
+            traceback.print_exc()
+            # ⚠️ NO FALLAR - Continuar aunque MongoDB falle
         
-        # ✅ AHORA 'db' ESTÁ DEFINIDO
-        # Si hay alto riesgo, crear alerta en PostgreSQL
+        # ============================================
+        # 4. CREAR ALERTA EN POSTGRESQL SI HAY ALTO RIESGO
+        # ============================================
         if analisis and analisis['risk_assessment']['level'] in ['alto', 'crítico']:
             try:
+                print(f"🚨 Nivel de riesgo {analisis['risk_assessment']['level']} detectado")
                 # Buscar psicólogo asignado
                 asignacion = db.query(models.PacientePsicologo).filter(
                     models.PacientePsicologo.id_paciente == current_user.id_usuario,
@@ -239,7 +267,7 @@ async def enviar_mensaje_rasa(
         print(f"❌ Error de conexión con Rasa: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"No se pudo conectar con Rasa en {RASA_URL}. Verifica que esté corriendo con: rasa run --enable-api --cors '*' --port 5006"
+            detail=f"No se pudo conectar con Rasa en {RASA_URL}"
         )
     except httpx.TimeoutException:
         print(f"⏱️ Timeout conectando con Rasa")
@@ -267,7 +295,6 @@ def obtener_historial_chat(
     """
     Obtiene el historial de chat del usuario actual
     """
-    # Verificar que sea paciente
     if current_user.rol != models.UserRole.PACIENTE:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -275,13 +302,14 @@ def obtener_historial_chat(
         )
     
     try:
-        # Obtener conexión a MongoDB
         mongo_db = get_database()
         
-        # Obtener mensajes de MongoDB
+        # ✅ Buscar con user_id como STRING
         mensajes = list(mongo_db.chat_messages.find({
             "user_id": str(current_user.id_usuario)
         }).sort("timestamp", -1).limit(limit))
+        
+        print(f"📊 Encontrados {len(mensajes)} mensajes en MongoDB para usuario {current_user.id_usuario}")
         
         # Formatear mensajes (del más antiguo al más reciente)
         mensajes_formateados = []
@@ -307,6 +335,8 @@ def obtener_historial_chat(
     
     except Exception as e:
         print(f"❌ Error obteniendo historial: {e}")
+        import traceback
+        traceback.print_exc()
         return HistorialChat(
             mensajes=[],
             total=0
@@ -329,15 +359,18 @@ def obtener_estadisticas_chat(
     try:
         mongo_db = get_database()
         
+        # ✅ Buscar con user_id como STRING
+        user_id_str = str(current_user.id_usuario)
+        
         # Total de mensajes del usuario
         total_mensajes_usuario = mongo_db.chat_messages.count_documents({
-            "user_id": str(current_user.id_usuario),
+            "user_id": user_id_str,
             "is_bot": False
         })
         
         # Total de conversaciones (respuestas del bot)
         total_respuestas_bot = mongo_db.chat_messages.count_documents({
-            "user_id": str(current_user.id_usuario),
+            "user_id": user_id_str,
             "is_bot": True
         })
         
@@ -345,7 +378,7 @@ def obtener_estadisticas_chat(
         pipeline = [
             {
                 "$match": {
-                    "user_id": str(current_user.id_usuario),
+                    "user_id": user_id_str,
                     "is_bot": False,
                     "emotional_analysis.emotions.dominant_emotion": {"$exists": True}
                 }
@@ -377,6 +410,8 @@ def obtener_estadisticas_chat(
     
     except Exception as e:
         print(f"❌ Error obteniendo estadísticas: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             "total_mensajes": 0,
             "total_conversaciones": 0,
@@ -400,15 +435,16 @@ def limpiar_historial_chat(
     
     try:
         mongo_db = get_database()
+        user_id_str = str(current_user.id_usuario)
         
         # Eliminar mensajes del chat
         result_chat = mongo_db.chat_messages.delete_many({
-            "user_id": str(current_user.id_usuario)
+            "user_id": user_id_str
         })
         
         # Eliminar análisis emocionales del chat
         result_emotional = mongo_db.emotional_texts.delete_many({
-            "user_id": str(current_user.id_usuario),
+            "user_id": user_id_str,
             "source": "chat_rasa"
         })
         
@@ -429,131 +465,89 @@ def limpiar_historial_chat(
 @router.get("/chat/health")
 def verificar_estado_chat():
     """
-    Verifica el estado del servicio de chat (Rasa)
+    Verifica el estado del servicio de chat (Rasa + MongoDB)
     """
+    status_dict = {
+        "rasa": "unknown",
+        "mongodb": "unknown",
+        "overall": "unknown"
+    }
+    
+    # Verificar Rasa
     try:
         import requests
         response = requests.get(f"{RASA_URL}/", timeout=5)
-        
         if response.status_code == 200:
-            return {
-                "status": "healthy",
-                "rasa_url": RASA_URL,
-                "rasa_status": "online",
-                "message": "El servicio de chat está disponible"
-            }
-        else:
-            return {
-                "status": "degraded",
-                "rasa_url": RASA_URL,
-                "rasa_status": "offline",
-                "message": f"Rasa respondió con status {response.status_code}"
-            }
+            status_dict["rasa"] = "online"
+    except:
+        status_dict["rasa"] = "offline"
+    
+    # Verificar MongoDB
+    try:
+        mongo_db = get_database()
+        mongo_db.command('ping')
+        status_dict["mongodb"] = "online"
     except Exception as e:
-        return {
-            "status": "unhealthy",
-            "rasa_url": RASA_URL,
-            "rasa_status": "offline",
-            "error": str(e),
-            "message": f"No se pudo conectar con Rasa en {RASA_URL}"
-        }
+        status_dict["mongodb"] = f"offline: {str(e)}"
+    
+    # Estado general
+    if status_dict["rasa"] == "online" and status_dict["mongodb"] == "online":
+        status_dict["overall"] = "healthy"
+    elif status_dict["rasa"] == "online":
+        status_dict["overall"] = "degraded"
+    else:
+        status_dict["overall"] = "unhealthy"
+    
+    return {
+        "status": status_dict["overall"],
+        "services": status_dict,
+        "rasa_url": RASA_URL,
+        "message": f"Chat: {status_dict['overall']}"
+    }
 
-@router.get("/chat/analisis-paciente/{id_paciente}")
-def obtener_analisis_chat_paciente(
-    id_paciente: int,
-    dias: int = 30,
+
+# ============================================
+# 🔍 ENDPOINT DE DEBUG
+# ============================================
+
+@router.get("/chat/debug/verificar-mongodb")
+def debug_verificar_mongodb(
     current_user: models.Usuario = Depends(get_current_user)
 ):
     """
-    Obtiene análisis del chat del paciente para el psicólogo
+    🔍 Endpoint de debugging para verificar MongoDB
     """
-    # Verificar que sea psicólogo
-    if current_user.rol != models.UserRole.PSICOLOGO:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo psicólogos pueden acceder"
-        )
-    
-    # Verificar asignación
-    asignacion = db.query(models.PacientePsicologo).filter(
-        models.PacientePsicologo.id_paciente == id_paciente,
-        models.PacientePsicologo.id_psicologo == current_user.id_usuario,
-        models.PacientePsicologo.activo == True
-    ).first()
-    
-    if not asignacion:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Paciente no asignado"
-        )
-    
     try:
         mongo_db = get_database()
-        fecha_inicio = datetime.utcnow() - timedelta(days=dias)
+        user_id_str = str(current_user.id_usuario)
         
-        # Obtener mensajes del chat
-        mensajes = list(mongo_db.chat_messages.find({
-            "user_id": str(id_paciente),
-            "is_bot": False,
-            "timestamp": {"$gte": fecha_inicio},
-            "emotional_analysis": {"$exists": True}
-        }).sort("timestamp", 1))
+        # Contar documentos
+        count_messages = mongo_db.chat_messages.count_documents({"user_id": user_id_str})
+        count_emotional = mongo_db.emotional_texts.count_documents({"user_id": user_id_str})
         
-        # Agrupar por día
-        emociones_por_dia = {}
-        
-        for msg in mensajes:
-            fecha = msg['timestamp'].strftime('%Y-%m-%d')
-            
-            if fecha not in emociones_por_dia:
-                emociones_por_dia[fecha] = {
-                    'fecha': fecha,
-                    'alegria': 0,
-                    'tristeza': 0,
-                    'ansiedad': 0,
-                    'enojo': 0,
-                    'miedo': 0,
-                    'neutral': 0,
-                    'total_mensajes': 0,
-                    'nivel_riesgo_total': 0
-                }
-            
-            analysis = msg.get('emotional_analysis', {})
-            emotions = analysis.get('emotions', {})
-            
-            # Emoción dominante
-            emocion = emotions.get('dominant_emotion', 'neutral').lower()
-            scores = emotions.get('scores', {})
-            
-            # Normalizar a escala 1-10
-            intensidad = scores.get(emocion, 0) * 10
-            
-            if emocion in emociones_por_dia[fecha]:
-                emociones_por_dia[fecha][emocion] += intensidad
-                emociones_por_dia[fecha]['total_mensajes'] += 1
-            
-            # Nivel de riesgo
-            risk = analysis.get('risk_assessment', {}).get('score', 0)
-            emociones_por_dia[fecha]['nivel_riesgo_total'] += risk
-        
-        # Promediar
-        for fecha, datos in emociones_por_dia.items():
-            count = datos['total_mensajes']
-            if count > 0:
-                for emocion in ['alegria', 'tristeza', 'ansiedad', 'enojo', 'miedo', 'neutral']:
-                    datos[emocion] = round(datos[emocion] / count, 2)
-                datos['nivel_riesgo_promedio'] = round(datos['nivel_riesgo_total'] / count, 2)
+        # Obtener último mensaje
+        ultimo_mensaje = mongo_db.chat_messages.find_one(
+            {"user_id": user_id_str},
+            sort=[("timestamp", -1)]
+        )
         
         return {
-            "emociones_por_dia": list(emociones_por_dia.values()),
-            "total_mensajes": len(mensajes),
-            "promedio_riesgo": sum(d['nivel_riesgo_promedio'] for d in emociones_por_dia.values()) / len(emociones_por_dia) if emociones_por_dia else 0
+            "user_id": current_user.id_usuario,
+            "user_id_str": user_id_str,
+            "mongodb_status": "connected",
+            "collections": {
+                "chat_messages": count_messages,
+                "emotional_texts": count_emotional
+            },
+            "ultimo_mensaje": {
+                "existe": ultimo_mensaje is not None,
+                "timestamp": ultimo_mensaje.get("timestamp").isoformat() if ultimo_mensaje else None,
+                "message": ultimo_mensaje.get("message") if ultimo_mensaje else None
+            }
         }
-    
     except Exception as e:
-        print(f"❌ Error analizando chat: {e}")
         return {
-            "emociones_por_dia": [],
-            "total_mensajes": 0,
-            "promedio_riesgo": 0
+            "error": str(e),
+            "type": type(e).__name__,
+            "mongodb_status": "error"
         }

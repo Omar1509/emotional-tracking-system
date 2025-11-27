@@ -94,11 +94,6 @@ const ReportesAdmin = () => {
             <option value={90}>Últimos 90 días</option>
             <option value={180}>Últimos 6 meses</option>
           </select>
-          
-          <button className="flex items-center space-x-2 bg-gradient-to-r from-emerald-600 to-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:from-emerald-700 hover:to-blue-700 shadow-lg transition-all">
-            <Download className="w-5 h-5" />
-            <span>Exportar PDF</span>
-          </button>
         </div>
       </div>
 

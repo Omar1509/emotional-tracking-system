@@ -1,4 +1,5 @@
 // frontend/src/components/Paciente/ChatApoyoRasa.js
+// ✅ COLORES SUAVES
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, User, AlertCircle, CheckCircle } from 'lucide-react';
@@ -140,9 +141,9 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-100px)] bg-gradient-to-br from-emerald-50 via-blue-50 to-purple-50 rounded-xl shadow-lg">
+    <div className="flex flex-col h-[calc(100vh-100px)] bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-xl shadow-lg">
       {/* Header */}
-      <div className="bg-gradient-to-r from-emerald-600 to-blue-600 text-white p-6 rounded-t-xl shadow-md">
+      <div className="bg-gradient-to-r from-indigo-500 to-blue-500 text-white p-6 rounded-t-xl shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
@@ -154,7 +155,7 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
                 {isConnected ? (
                   <>
                     <div className="w-2 h-2 bg-green-300 rounded-full animate-pulse"></div>
-                    <p className="text-emerald-100 text-sm">Conectado</p>
+                    <p className="text-indigo-100 text-sm">Conectado</p>
                   </>
                 ) : (
                   <>
@@ -219,8 +220,8 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                   message.role === 'user'
-                    ? 'bg-gradient-to-br from-emerald-500 to-emerald-600'
-                    : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                    ? 'bg-gradient-to-br from-indigo-400 to-indigo-500'
+                    : 'bg-gradient-to-br from-blue-400 to-purple-500'
                 }`}
               >
                 {message.role === 'user' ? (
@@ -233,7 +234,7 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
               <div
                 className={`rounded-2xl px-5 py-3 shadow-md ${
                   message.role === 'user'
-                    ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white'
+                    ? 'bg-gradient-to-br from-indigo-400 to-indigo-500 text-white'
                     : 'bg-white text-gray-800 border border-gray-200'
                 }`}
               >
@@ -250,7 +251,7 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
                 )}
 
                 <p className={`text-xs mt-2 ${
-                  message.role === 'user' ? 'text-emerald-100' : 'text-gray-400'
+                  message.role === 'user' ? 'text-indigo-100' : 'text-gray-400'
                 }`}>
                   {new Date(message.timestamp).toLocaleTimeString('es-ES', {
                     hour: '2-digit',
@@ -265,7 +266,7 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
         {loading && (
           <div className="flex justify-start">
             <div className="flex items-start space-x-2 max-w-[80%]">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
                 <Bot className="w-6 h-6 text-white" />
               </div>
               <div className="bg-white rounded-2xl px-5 py-3 shadow-md border border-gray-200">
@@ -292,12 +293,12 @@ const ChatApoyoRasa = ({ setCurrentView }) => {
             placeholder={isConnected ? "Escribe cómo te sientes... 💭" : "Conectando al servidor..."}
             disabled={loading || !isConnected}
             rows="2"
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
           <button
             onClick={handleSendMessage}
             disabled={loading || !inputMessage.trim() || !isConnected}
-            className="bg-gradient-to-r from-emerald-600 to-blue-600 text-white p-4 rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r from-indigo-500 to-blue-500 text-white p-4 rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="w-5 h-5" />
           </button>

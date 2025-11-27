@@ -170,20 +170,6 @@ const LoginByRole = ({ selectedRole, onLogin, onBack }) => {
             )}
           </button>
         </form>
-
-        <div className="border-t pt-6">
-          <p className="text-center text-sm text-gray-600 mb-3">Prueba rápida:</p>
-          <button
-            onClick={quickLogin}
-            disabled={loading}
-            className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors disabled:opacity-50"
-          >
-            ⚡ Login rápido de {config.title}
-          </button>
-          <p className="text-xs text-gray-500 text-center mt-2">
-            Usuario: {config.testUser}
-          </p>
-        </div>
       </div>
     </div>
   );

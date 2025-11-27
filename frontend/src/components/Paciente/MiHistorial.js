@@ -1,5 +1,5 @@
 // frontend/src/components/Paciente/MiHistorial.js
-// ✅ COMPONENTE DE HISTORIAL EMOCIONAL PARA PACIENTE - CORREGIDO
+// ✅ COMPONENTE CORREGIDO - Compatible con tabla emociones_diarias
 
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, TrendingUp, TrendingDown, Calendar, Activity } from 'lucide-react';
@@ -24,33 +24,53 @@ const MiHistorial = ({ setCurrentView }) => {
       setLoading(true);
       const user = JSON.parse(localStorage.getItem('user'));
 
+      console.log('📡 Cargando datos para usuario:', user.id_usuario);
+
       // Cargar registros manuales
       try {
         const registrosResponse = await api.get('/registros-emocionales');
         setRegistros(registrosResponse.registros || []);
+        console.log('✅ Registros manuales:', registrosResponse.registros?.length || 0);
       } catch (error) {
-        console.error('Error cargando registros manuales:', error);
+        console.error('❌ Error cargando registros manuales:', error);
         setRegistros([]);
       }
 
-      // ✅ FIX: Cargar emociones diarias con URL correcta
+      // ✅ Cargar emociones diarias con estructura correcta
       try {
+        console.log(`📡 Solicitando: /emociones-diarias/${user.id_usuario}?dias=${periodo}`);
         const emocionesResponse = await api.get(
           `/emociones-diarias/${user.id_usuario}?dias=${periodo}`
         );
-        setEmocionesDiarias(emocionesResponse.emociones_diarias || []);
+        
+        console.log('📦 Respuesta completa:', emocionesResponse);
+        
+        // ✅ Manejar diferentes formatos de respuesta
+        let emocionesData = [];
+        if (Array.isArray(emocionesResponse)) {
+          emocionesData = emocionesResponse;
+        } else if (emocionesResponse.emociones_diarias) {
+          emocionesData = emocionesResponse.emociones_diarias;
+        }
+
+        console.log('✅ Emociones diarias cargadas:', emocionesData.length);
+        setEmocionesDiarias(emocionesData);
         
         // Calcular estadísticas
-        if (emocionesResponse.emociones_diarias && emocionesResponse.emociones_diarias.length > 0) {
-          calcularEstadisticas(emocionesResponse.emociones_diarias);
+        if (emocionesData.length > 0) {
+          calcularEstadisticas(emocionesData);
+        } else {
+          setEstadisticas(null);
         }
       } catch (error) {
-        console.error('Error cargando emociones diarias:', error);
+        console.error('❌ Error cargando emociones diarias:', error);
+        console.error('Detalles del error:', error.response?.data || error.message);
         setEmocionesDiarias([]);
+        setEstadisticas(null);
       }
 
     } catch (error) {
-      console.error('Error cargando historial:', error);
+      console.error('❌ Error general cargando historial:', error);
       mostrarNotificacion('error', 'Error', 'No se pudo cargar el historial');
     } finally {
       setLoading(false);
@@ -58,15 +78,17 @@ const MiHistorial = ({ setCurrentView }) => {
   };
 
   const calcularEstadisticas = (emociones) => {
-    if (emociones.length === 0) {
+    if (!emociones || emociones.length === 0) {
       setEstadisticas(null);
       return;
     }
 
+    console.log('📊 Calculando estadísticas con', emociones.length, 'registros');
+
     // Contar emociones dominantes
     const conteoEmociones = {};
     emociones.forEach(e => {
-      const emocion = e.emocion_dominante;
+      const emocion = e.emocion_dominante || 'desconocida';
       conteoEmociones[emocion] = (conteoEmociones[emocion] || 0) + 1;
     });
 
@@ -75,13 +97,13 @@ const MiHistorial = ({ setCurrentView }) => {
       conteoEmociones[a] > conteoEmociones[b] ? a : b
     );
 
-    // Promedios
+    // Promedios (convertir de 0-1 a 0-100 para mejor visualización)
     const promedios = {
-      alegria: emociones.reduce((sum, e) => sum + (e.alegria_promedio || 0), 0) / emociones.length,
-      tristeza: emociones.reduce((sum, e) => sum + (e.tristeza_promedio || 0), 0) / emociones.length,
-      ansiedad: emociones.reduce((sum, e) => sum + (e.ansiedad_promedio || 0), 0) / emociones.length,
-      enojo: emociones.reduce((sum, e) => sum + (e.enojo_promedio || 0), 0) / emociones.length,
-      miedo: emociones.reduce((sum, e) => sum + (e.miedo_promedio || 0), 0) / emociones.length
+      alegria: emociones.reduce((sum, e) => sum + parseFloat(e.alegria_promedio || 0), 0) / emociones.length,
+      tristeza: emociones.reduce((sum, e) => sum + parseFloat(e.tristeza_promedio || 0), 0) / emociones.length,
+      ansiedad: emociones.reduce((sum, e) => sum + parseFloat(e.ansiedad_promedio || 0), 0) / emociones.length,
+      enojo: emociones.reduce((sum, e) => sum + parseFloat(e.enojo_promedio || 0), 0) / emociones.length,
+      miedo: emociones.reduce((sum, e) => sum + parseFloat(e.miedo_promedio || 0), 0) / emociones.length
     };
 
     // Tendencia (comparar primera mitad vs segunda mitad)
@@ -89,19 +111,24 @@ const MiHistorial = ({ setCurrentView }) => {
     const primeraMetad = emociones.slice(0, mitad);
     const segundaMitad = emociones.slice(mitad);
 
-    const promedioInicial = primeraMetad.reduce((sum, e) => sum + (e.alegria_promedio || 0), 0) / primeraMetad.length;
-    const promedioFinal = segundaMitad.reduce((sum, e) => sum + (e.alegria_promedio || 0), 0) / segundaMitad.length;
+    const promedioInicial = primeraMetad.reduce((sum, e) => 
+      sum + parseFloat(e.alegria_promedio || 0), 0) / primeraMetad.length;
+    const promedioFinal = segundaMitad.reduce((sum, e) => 
+      sum + parseFloat(e.alegria_promedio || 0), 0) / segundaMitad.length;
 
     const tendencia = promedioFinal > promedioInicial + 0.1 ? 'mejorando' : 
                      promedioFinal < promedioInicial - 0.1 ? 'empeorando' : 'estable';
 
-    setEstadisticas({
+    const stats = {
       emocionMasFrecuente,
       conteoEmociones,
       promedios,
       tendencia,
-      totalInteracciones: emociones.reduce((sum, e) => sum + (e.total_interacciones || 0), 0)
-    });
+      totalInteracciones: emociones.reduce((sum, e) => sum + parseInt(e.total_interacciones || 0), 0)
+    };
+
+    console.log('✅ Estadísticas calculadas:', stats);
+    setEstadisticas(stats);
   };
 
   const mostrarNotificacion = (tipo, titulo, descripcion) => {
@@ -110,11 +137,20 @@ const MiHistorial = ({ setCurrentView }) => {
   };
 
   const prepararDatosGraficoLinea = () => {
-    return emocionesDiarias.slice().reverse().map(e => ({
+    if (!emocionesDiarias || emocionesDiarias.length === 0) return [];
+
+    // Ordenar por fecha ascendente para el gráfico
+    const datosOrdenados = [...emocionesDiarias].sort((a, b) => 
+      new Date(a.fecha) - new Date(b.fecha)
+    );
+
+    return datosOrdenados.map(e => ({
       fecha: new Date(e.fecha).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
-      Alegría: (e.alegria_promedio || 0).toFixed(2),
-      Tristeza: (e.tristeza_promedio || 0).toFixed(2),
-      Ansiedad: (e.ansiedad_promedio || 0).toFixed(2)
+      Alegría: (parseFloat(e.alegria_promedio || 0) * 100).toFixed(0),
+      Tristeza: (parseFloat(e.tristeza_promedio || 0) * 100).toFixed(0),
+      Ansiedad: (parseFloat(e.ansiedad_promedio || 0) * 100).toFixed(0),
+      Enojo: (parseFloat(e.enojo_promedio || 0) * 100).toFixed(0),
+      Miedo: (parseFloat(e.miedo_promedio || 0) * 100).toFixed(0)
     }));
   };
 
@@ -134,24 +170,26 @@ const MiHistorial = ({ setCurrentView }) => {
       'alegría': '😊',
       'enojo': '😠',
       'miedo': '😰',
-      'ansiedad': '😰'
+      'ansiedad': '😰',
+      'neutral': '😐',
+      'desconocida': '❓'
     };
     return emojis[emocion?.toLowerCase()] || '😊';
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-8 flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-xl">Cargando tu historial...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-xl text-gray-800">Cargando tu historial...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-8">
       {notificacion && (
         <Notificacion
           tipo={notificacion.tipo}
@@ -166,15 +204,15 @@ const MiHistorial = ({ setCurrentView }) => {
         <div className="flex items-center justify-between mb-8">
           <button
             onClick={() => setCurrentView('dashboard')}
-            className="flex items-center space-x-2 text-white hover:text-indigo-100 transition-colors"
+            className="flex items-center space-x-2 text-gray-700 hover:text-indigo-600 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Volver</span>
           </button>
           
           <div className="text-center flex-1">
-            <h1 className="text-4xl font-bold text-white mb-2">📈 Mi Historial Emocional</h1>
-            <p className="text-indigo-100">Seguimiento de tu bienestar a lo largo del tiempo</p>
+            <h1 className="text-4xl font-bold text-gray-800 mb-2">📈 Mi Historial Emocional</h1>
+            <p className="text-gray-600">Seguimiento de tu bienestar a lo largo del tiempo</p>
           </div>
 
           <div className="w-24"></div>
@@ -187,7 +225,7 @@ const MiHistorial = ({ setCurrentView }) => {
               onClick={() => setPeriodo(7)}
               className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
                 periodo === 7
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
+                  ? 'bg-gradient-to-r from-indigo-400 to-purple-400 text-white shadow-lg'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -197,7 +235,7 @@ const MiHistorial = ({ setCurrentView }) => {
               onClick={() => setPeriodo(30)}
               className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
                 periodo === 30
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
+                  ? 'bg-gradient-to-r from-indigo-400 to-purple-400 text-white shadow-lg'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -207,7 +245,7 @@ const MiHistorial = ({ setCurrentView }) => {
               onClick={() => setPeriodo(90)}
               className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
                 periodo === 90
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
+                  ? 'bg-gradient-to-r from-indigo-400 to-purple-400 text-white shadow-lg'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -279,12 +317,14 @@ const MiHistorial = ({ setCurrentView }) => {
               <LineChart data={prepararDatosGraficoLinea()}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="fecha" />
-                <YAxis domain={[0, 1]} />
+                <YAxis domain={[0, 100]} label={{ value: 'Intensidad (%)', angle: -90, position: 'insideLeft' }} />
                 <Tooltip />
                 <Legend />
                 <Line type="monotone" dataKey="Alegría" stroke="#10b981" strokeWidth={2} />
                 <Line type="monotone" dataKey="Tristeza" stroke="#3b82f6" strokeWidth={2} />
                 <Line type="monotone" dataKey="Ansiedad" stroke="#f59e0b" strokeWidth={2} />
+                <Line type="monotone" dataKey="Enojo" stroke="#ef4444" strokeWidth={2} />
+                <Line type="monotone" dataKey="Miedo" stroke="#8b5cf6" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -298,7 +338,7 @@ const MiHistorial = ({ setCurrentView }) => {
               <BarChart data={prepararDatosGraficoBarras()}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="emocion" />
-                <YAxis />
+                <YAxis domain={[0, 100]} label={{ value: 'Promedio (%)', angle: -90, position: 'insideLeft' }} />
                 <Tooltip />
                 <Bar dataKey="valor" fill="#6366f1" />
               </BarChart>
@@ -318,7 +358,7 @@ const MiHistorial = ({ setCurrentView }) => {
             </p>
             <button
               onClick={() => setCurrentView('chat')}
-              className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 font-semibold transition-all"
+              className="px-6 py-3 bg-gradient-to-r from-indigo-400 to-purple-400 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 font-semibold transition-all"
             >
               Ir al Chatbot
             </button>

@@ -3,8 +3,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-# PostgreSQL Database URL
-# Formato: postgresql://usuario:contraseña@host:puerto/nombre_bd
 SQLALCHEMY_DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://user:password@localhost:5432/emotional_tracking_db"

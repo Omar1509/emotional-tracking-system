@@ -167,7 +167,6 @@ routers_disponibles = ['auth']
 routers_faltantes = []
 
 routers_config = [
-    ('usuarios', '/api/usuarios', ['usuarios']),
     ('pacientes', '/api/pacientes', ['pacientes']),
     ('psicologos', '/api/psicologos', ['psicologos']),
     ('admin', '/api/admin', ['admin']),
